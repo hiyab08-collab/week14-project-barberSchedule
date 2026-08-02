@@ -1,28 +1,125 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider = "postgresql"
 }
 
-model Category {
-  id        Int      @id @default(autoincrement())
-  name      String   @db.VarChar(100)
-  createdAt DateTime @default(now()) @map("created_at")
-  items     Item[]
-
-  @@map("categories")
+generator client {
+  provider = "prisma-client-js"
 }
 
-model Item {
-  id          Int      @id @default(autoincrement())
-  name        String   @db.VarChar(100)
-  description String   @db.Text
-  categoryId  Int      @map("category_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-  category    Category @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(CUSTOMER)
+  createdAt DateTime @default(now())
 
-  @@index([categoryId])
-  @@map("items")
+  barberProfile        BarberProfile?
+  customerAppointments Appointment[]  @relation("CustomerAppointments")
+  barberAppointments   Appointment[]  @relation("BarberAppointments")
+  reviewsWritten       Review[]       @relation("CustomerReviews")
+  reviewsReceived      Review[]       @relation("BarberReviews")
+  likesGiven           BarberLike[] @relation("LikesGiven")
+  likesReceived        BarberLike[] @relation("LikesReceived")
+  favoritesGiven       Favorite[] @relation("FavoritesGiven")
+  favoritedByCustomers Favorite[] @relation("FavoritedBarber")
+}
+
+enum Role {
+  CUSTOMER
+  BARBER
+  ADMIN
+}
+
+model BarberProfile {
+  id          Int     @id @default(autoincrement())
+  bio         String?
+  specialties String?
+  photoUrl    String?
+
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id])
+}
+
+model Service {
+  id              Int     @id @default(autoincrement())
+  name            String
+  description     String?
+  price           Decimal
+  durationMinutes Int
+
+  appointments Appointment[]
+  reviews      Review[]
+  favorites    Favorite[]
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model Appointment {
+  id        Int               @id @default(autoincrement())
+  startTime DateTime
+  status    AppointmentStatus @default(PENDING)
+  createdAt DateTime          @default(now())
+
+  customerId Int
+  customer   User @relation("CustomerAppointments", fields: [customerId], references: [id])
+
+  barberId Int
+  barber   User @relation("BarberAppointments", fields: [barberId], references: [id])
+
+  serviceId Int
+  service   Service @relation(fields: [serviceId], references: [id])
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  rating    Int
+  comment   String?
+  mediaUrl String?
+  mediaType String?
+  createdAt DateTime @default(now())
+
+  customerId Int
+  customer   User @relation("CustomerReviews", fields: [customerId], references: [id])
+
+  barberId Int?
+  barber   User? @relation("BarberReviews", fields: [barberId], references: [id])
+
+  serviceId Int?
+  service   Service? @relation(fields: [serviceId], references: [id])
+}
+
+model BarberLike {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  userId Int
+  user   User @relation("LikesGiven", fields: [userId], references: [id])
+
+  barberId Int
+  barber   User @relation("LikesReceived", fields: [barberId], references: [id])
+
+  @@unique([userId, barberId])
+}
+
+model Favorite {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  userId Int
+  user   User @relation("FavoritesGiven", fields: [userId], references: [id])
+
+  barberId Int?
+  barber   User? @relation("FavoritedBarber", fields: [barberId], references: [id])
+
+  serviceId Int?
+  service   Service? @relation(fields: [serviceId], references: [id])
+
+  @@unique([userId, barberId])
+  @@unique([userId, serviceId])
 }

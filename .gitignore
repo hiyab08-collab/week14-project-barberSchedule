@@ -5,3 +5,4 @@ dist/
 coverage/
 apps/backend/prisma/generated/
 apps/backend/dev.db
+apps/backend/uploads/

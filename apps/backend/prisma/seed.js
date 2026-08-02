@@ -1,53 +1,78 @@
-import "dotenv/config";
-import prisma from "../server/db/prisma.js";
+import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL,
+});
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  await prisma.item.deleteMany();
-  await prisma.category.deleteMany();
+  await prisma.appointment.deleteMany();
+  await prisma.barberProfile.deleteMany();
+  await prisma.service.deleteMany();
+  await prisma.user.deleteMany();
 
-  const categories = await prisma.category.createMany({
-    data: [
-      { name: "Frontend" },
-      { name: "Backend" },
-      { name: "Database" }
-    ]
-  });
-
-  if (categories.count === 0) {
-    return;
-  }
-
-  const savedCategories = await prisma.category.findMany({
-    orderBy: { id: "asc" }
-  });
-
-  await prisma.item.createMany({
+  await prisma.service.createMany({
     data: [
       {
-        name: "Build a React page",
-        description: "Create a component that fetches data from the Express API.",
-        categoryId: savedCategories[0].id
+        name: "Haircut",
+        description: "Classic haircut, clippers or scissors",
+        price: 25.0,
+        durationMinutes: 30,
       },
       {
-        name: "Create an Express route",
-        description: "Add a REST endpoint that returns JSON from PostgreSQL.",
-        categoryId: savedCategories[1].id
+        name: "Fade",
+        description: "Skin fade or taper fade",
+        price: 30.0,
+        durationMinutes: 45,
       },
       {
-        name: "Design a table",
-        description: "Practice creating related tables with primary and foreign keys.",
-        categoryId: savedCategories[2].id
-      }
-    ]
+        name: "Beard Trim",
+        description: "Shape and trim facial hair",
+        price: 15.0,
+        durationMinutes: 15,
+      },
+      {
+        name: "Haircut + Beard Combo",
+        description: "Haircut and beard trim together",
+        price: 35.0,
+        durationMinutes: 45,
+      },
+    ],
   });
+
+  const maria = await prisma.user.create({
+    data: {
+      name: "Maria Lopez",
+      email: "maria@example.com",
+      password: "placeholder",
+      role: "CUSTOMER",
+    },
+  });
+
+  const tony = await prisma.user.create({
+    data: {
+      name: "Tony Reyes",
+      email: "tony@example.com",
+      password: "placeholder",
+      role: "BARBER",
+      barberProfile: {
+        create: {
+          bio: "10 years experience, specializes in fades",
+          specialties: "Fades, Line Ups",
+        },
+      },
+    },
+  });
+
+  console.log("Seed data created:", { maria: maria.id, tony: tony.id });
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (error) => {
-    console.error(error);
-    await prisma.$disconnect();
+  .catch((error) => {
+    console.error("Error seeding data:", error);
     process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
   });
