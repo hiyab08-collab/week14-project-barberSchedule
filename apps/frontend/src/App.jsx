@@ -1,125 +1,208 @@
 import { useEffect, useState } from "react";
-import { createItem, fetchCategories, fetchItems } from "./api/items.js";
-import ItemList from "./components/ItemList.jsx";
-
-const emptyForm = {
-  name: "",
-  description: "",
-  categoryId: ""
-};
+import { fetchServices } from "./api/services.js";
+import { fetchBarbers } from "./api/barbers.js";
+import { fetchMyAppointments } from "./api/appointments.js";
+import { fetchMyFavorites } from "./api/favorites.js";
+import ServiceList from "./components/ServiceList.jsx";
+import BookingForm from "./components/BookingForm.jsx";
+import MyAppointments from "./components/MyAppointments.jsx";
+import Cover from "./components/Cover.jsx";
+import AdminPanel from "./components/AdminPanel.jsx";
+import BarbersSection from "./components/BarbersSection.jsx";
 
 export default function App() {
-  const [items, setItems] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [form, setForm] = useState(emptyForm);
-  const [status, setStatus] = useState("Loading items...");
+  const [services, setServices] = useState([]);
+  const [barbers, setBarbers] = useState([]);
+  const [myAppointments, setMyAppointments] = useState([]);
+  const [myFavorites, setMyFavorites] = useState([]);
+  const [status, setStatus] = useState("Loading services...");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem("user");
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [token, setToken] = useState(() => localStorage.getItem("token"));
+
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("theme") || "dark",
+  );
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const [itemData, categoryData] = await Promise.all([
-          fetchItems(),
-          fetchCategories()
-        ]);
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
-        setItems(itemData);
-        setCategories(categoryData);
-        setStatus("");
-      } catch (error) {
-        setStatus(error.message);
-      }
-    }
-
-    loadData();
-  }, []);
-
-  function handleChange(event) {
-    const { name, value } = event.target;
-    setForm((currentForm) => ({
-      ...currentForm,
-      [name]: value
-    }));
+  function toggleTheme() {
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setStatus("Saving item...");
-
+  async function loadShopData() {
     try {
-      const savedItem = await createItem(form);
-      setItems((currentItems) => [...currentItems, savedItem]);
-      setForm(emptyForm);
-      setStatus("Item created successfully.");
+      const [serviceData, barberData] = await Promise.all([
+        fetchServices(),
+        fetchBarbers(),
+      ]);
+      setServices(serviceData);
+      setBarbers(barberData);
+      setStatus("");
     } catch (error) {
       setStatus(error.message);
     }
   }
 
+  useEffect(() => {
+    loadShopData();
+  }, []);
+
+  useEffect(() => {
+    async function loadPersonalData() {
+      if (!user || !token) {
+        setMyAppointments([]);
+        setMyFavorites([]);
+        return;
+      }
+      try {
+        const [appointmentData, favoriteData] = await Promise.all([
+          fetchMyAppointments(token),
+          fetchMyFavorites(token),
+        ]);
+        setMyAppointments(appointmentData);
+        setMyFavorites(favoriteData);
+      } catch (error) {
+        console.error(error.message);
+      }
+    }
+
+    loadPersonalData();
+  }, [user, token]);
+
+  async function handleSearch(event) {
+    event.preventDefault();
+    try {
+      const data = await fetchServices(searchTerm);
+      setServices(data);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
+
+  function handleAuthSuccess(newUser, newToken) {
+    setUser(newUser);
+    setToken(newToken);
+    localStorage.setItem("user", JSON.stringify(newUser));
+    localStorage.setItem("token", newToken);
+  }
+
+  function handleLogout() {
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+  }
+
+  async function handleAppointmentsChanged() {
+    if (!token) return;
+    const data = await fetchMyAppointments(token);
+    setMyAppointments(data);
+  }
+
+  async function handleFavoriteChanged() {
+    if (!token) return;
+    const data = await fetchMyFavorites(token);
+    setMyFavorites(data);
+  }
+
   return (
     <main className="page">
-      <section className="panel">
-        <p className="eyebrow">React + Express + PostgreSQL + Prisma</p>
-        <h1>Student Full Stack Template</h1>
-        <p>
-          This starter includes a small example with categories and items so
-          students can see how the frontend, backend, and database connect.
-        </p>
-      </section>
+      <header className="site-header">
+        <button type="button" className="theme-toggle" onClick={toggleTheme}>
+          {theme === "dark" ? "☀ Light mode" : "☾ Dark mode"}
+        </button>
+      </header>
 
-      <section className="grid">
-        <article className="panel">
-          <h2>Create an item</h2>
-          <form className="form" onSubmit={handleSubmit}>
-            <label>
-              Item name
-              <input
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                placeholder="Build a new feature"
-                required
-              />
-            </label>
+      {!user ? (
+        <Cover onAuthSuccess={handleAuthSuccess} />
+      ) : (
+        <>
+          <section className="panel">
+            <p className="eyebrow">SlicedBy_N10</p>
+            <h1>Welcome back, {user.name}</h1>
+            <p>
+              {user.name} ({user.role}){" "}
+              <button type="button" onClick={handleLogout}>
+                Log out
+              </button>
+            </p>
+          </section>
 
-            <label>
-              Description
-              <textarea
-                name="description"
-                value={form.description}
-                onChange={handleChange}
-                placeholder="Describe the task"
-                rows="4"
-                required
-              />
-            </label>
+          {user.role === "ADMIN" ? (
+            <AdminPanel
+              services={services}
+              barbers={barbers}
+              token={token}
+              onDataChanged={loadShopData}
+            />
+          ) : (
+            <>
+              <section className="grid">
+                <article className="panel">
+                  <h2>Our Services</h2>
+                  <form className="form" onSubmit={handleSearch}>
+                    <label>
+                      Search services
+                      <input
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="e.g. fade"
+                      />
+                    </label>
+                    <button type="submit">Search</button>
+                  </form>
+                  {status ? <p className="status">{status}</p> : null}
+                  <ServiceList
+                    services={services}
+                    token={token}
+                    myFavorites={myFavorites}
+                    onFavoriteChanged={handleFavoriteChanged}
+                  />
+                </article>
 
-            <label>
-              Category
-              <select
-                name="categoryId"
-                value={form.categoryId}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select a category</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <BookingForm
+                  barbers={barbers}
+                  services={services}
+                  user={user}
+                  token={token}
+                  onBookingSuccess={handleAppointmentsChanged}
+                />
+              </section>
 
-            <button type="submit">Create item</button>
-          </form>
-        </article>
+              <section className="grid">
+                <BarbersSection
+                  barbers={barbers}
+                  user={user}
+                  token={token}
+                  onLikeChanged={loadShopData}
+                  myFavorites={myFavorites}
+                  onFavoriteChanged={handleFavoriteChanged}
+                />
+              </section>
 
-        <article className="panel">
-          <h2>Example items</h2>
-          {status ? <p className="status">{status}</p> : null}
-          <ItemList items={items} />
-        </article>
-      </section>
+              <section className="grid">
+                <article className="panel">
+                  <h2>My Appointments</h2>
+                  <MyAppointments
+                    appointments={myAppointments}
+                    currentUserId={user.id}
+                    token={token}
+                    onCancelled={handleAppointmentsChanged}
+                  />
+                </article>
+              </section>
+            </>
+          )}
+        </>
+      )}
     </main>
   );
 }
