@@ -53,7 +53,7 @@ export async function createReview(req, res) {
     let mediaUrl = null;
     let mediaType = null;
     if (req.file) {
-      mediaUrl = `/uploads/${req.file.filename}`;
+      mediaUrl = req.file.path;
       mediaType = req.file.mimetype.startsWith("video") ? "video" : "image";
     }
 

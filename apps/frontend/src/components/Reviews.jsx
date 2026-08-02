@@ -68,17 +68,13 @@ export default function Reviews({ barberId, serviceId, user, token }) {
           </p>
           {review.mediaUrl && review.mediaType === "image" ? (
             <img
-              src={`http://localhost:5000${review.mediaUrl}`}
+              src={review.mediaUrl}
               alt="Customer's cut"
               className="review-media"
             />
           ) : null}
           {review.mediaUrl && review.mediaType === "video" ? (
-            <video
-              src={`http://localhost:5000${review.mediaUrl}`}
-              controls
-              className="review-media"
-            />
+            <video src={review.mediaUrl} controls className="review-media" />
           ) : null}
         </div>
       ))}
