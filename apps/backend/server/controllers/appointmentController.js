@@ -1,4 +1,9 @@
 import prisma from "../db/prisma.js";
+import {
+  sendAppointmentEmail,
+  buildBookingConfirmationEmail,
+  buildCancellationEmail,
+} from "../config/email.js";
 
 export async function getAllAppointments(req, res) {
   try {
@@ -14,6 +19,29 @@ export async function getAllAppointments(req, res) {
   } catch (error) {
     console.error("Error fetching appointments:", error);
     res.status(500).json({ error: "Failed to fetch appointments" });
+  }
+}
+
+export async function getMyAppointments(req, res) {
+  try {
+    const { userId } = req.user;
+
+    const appointments = await prisma.appointment.findMany({
+      where: {
+        OR: [{ customerId: userId }, { barberId: userId }],
+      },
+      include: {
+        customer: { select: { id: true, name: true, email: true } },
+        barber: { select: { id: true, name: true, email: true } },
+        service: true,
+      },
+      orderBy: { startTime: "asc" },
+    });
+
+    res.json(appointments);
+  } catch (error) {
+    console.error("Error fetching your appointments:", error);
+    res.status(500).json({ error: "Failed to fetch your appointments" });
   }
 }
 
@@ -47,29 +75,6 @@ export async function getAppointmentById(req, res) {
   } catch (error) {
     console.error("Error fetching appointment:", error);
     res.status(500).json({ error: "Failed to fetch appointment" });
-  }
-}
-
-export async function getMyAppointments(req, res) {
-  try {
-    const { userId } = req.user;
-
-    const appointments = await prisma.appointment.findMany({
-      where: {
-        OR: [{ customerId: userId }, { barberId: userId }],
-      },
-      include: {
-        customer: { select: { id: true, name: true, email: true } },
-        barber: { select: { id: true, name: true, email: true } },
-        service: true,
-      },
-      orderBy: { startTime: "asc" },
-    });
-
-    res.json(appointments);
-  } catch (error) {
-    console.error("Error fetching your appointments:", error);
-    res.status(500).json({ error: "Failed to fetch your appointments" });
   }
 }
 
@@ -125,6 +130,30 @@ export async function createAppointment(req, res) {
       },
     });
 
+    const customerEmail = buildBookingConfirmationEmail({
+      recipientName: appointment.customer.name,
+      otherPersonName: appointment.barber.name,
+      serviceName: appointment.service.name,
+      startTime: appointment.startTime,
+      role: "customer",
+    });
+    const barberEmail = buildBookingConfirmationEmail({
+      recipientName: appointment.barber.name,
+      otherPersonName: appointment.customer.name,
+      serviceName: appointment.service.name,
+      startTime: appointment.startTime,
+      role: "barber",
+    });
+
+    await sendAppointmentEmail({
+      to: appointment.customer.email,
+      ...customerEmail,
+    });
+    await sendAppointmentEmail({
+      to: appointment.barber.email,
+      ...barberEmail,
+    });
+
     res.status(201).json(appointment);
   } catch (error) {
     console.error("Error creating appointment:", error);
@@ -163,6 +192,27 @@ export async function cancelAppointment(req, res) {
         service: true,
       },
     });
+
+    const customerEmail = buildCancellationEmail({
+      recipientName: updated.customer.name,
+      otherPersonName: updated.barber.name,
+      serviceName: updated.service.name,
+      startTime: updated.startTime,
+      role: "customer",
+    });
+    const barberEmail = buildCancellationEmail({
+      recipientName: updated.barber.name,
+      otherPersonName: updated.customer.name,
+      serviceName: updated.service.name,
+      startTime: updated.startTime,
+      role: "barber",
+    });
+
+    await sendAppointmentEmail({
+      to: updated.customer.email,
+      ...customerEmail,
+    });
+    await sendAppointmentEmail({ to: updated.barber.email, ...barberEmail });
 
     res.json(updated);
   } catch (error) {
