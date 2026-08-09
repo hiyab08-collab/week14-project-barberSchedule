@@ -7,7 +7,7 @@ export default function AuthForm({ onAuthSuccess }) {
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
-
+  const [showPassword, setShowPassword] = useState(false);
   function handleChange(event) {
     const { name, value } = event.target;
     setForm((currentForm) => ({ ...currentForm, [name]: value }));
@@ -65,13 +65,23 @@ export default function AuthForm({ onAuthSuccess }) {
 
         <label>
           Password
-          <input
-            type="password"
-            name="password"
-            value={form.password}
-            onChange={handleChange}
-            required
-          />
+          <div className="password-field">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              required
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              onClick={() => setShowPassword((current) => !current)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
         </label>
 
         {error ? <p className="status">{error}</p> : null}

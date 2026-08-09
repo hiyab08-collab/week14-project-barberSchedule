@@ -242,6 +242,25 @@ textarea {
   border-color: var(--accent-gold);
 }
 
+.form input:focus,
+.form select:focus,
+.form textarea:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+}
+
+.form input[type="datetime-local"],
+.form input[type="date"],
+.form input[type="time"] {
+  color-scheme: dark;
+}
+
+[data-theme="light"] .form input[type="datetime-local"],
+[data-theme="light"] .form input[type="date"],
+[data-theme="light"] .form input[type="time"] {
+  color-scheme: light;
+}
+
 .form button {
   border: 0;
   border-radius: 8px;
@@ -336,4 +355,32 @@ button.link-button {
   .panel {
     padding: 20px;
   }
+}
+
+.password-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-field input {
+  padding-right: 64px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--accent-gold);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.password-toggle:hover {
+  text-decoration: underline;
 }
