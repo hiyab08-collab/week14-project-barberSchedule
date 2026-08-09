@@ -1,12 +1,8 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { cancelAppointment } from "../api/appointments.js";
+import { buildGoogleCalendarUrl, downloadIcsFile } from "../utils/calendar.js";
 
-export default function MyAppointments({
-  appointments,
-  currentUserId,
-  token,
-  onCancelled,
-}) {
+export default function MyAppointments({ appointments, currentUserId, token, onCancelled }) {
   const [error, setError] = useState("");
 
   async function handleCancel(appointmentId) {
@@ -18,6 +14,15 @@ export default function MyAppointments({
     } catch (err) {
       setError(err.message);
     }
+  }
+
+  function calendarEventDetails(appt, otherPerson) {
+    return {
+      title: `${appt.service.name} at SlicedBy_10`,
+      description: `Appointment with ${otherPerson.name} for ${appt.service.name}.`,
+      startTime: appt.startTime,
+      durationMinutes: appt.service.durationMinutes,
+    };
   }
 
   if (appointments.length === 0) {
@@ -32,21 +37,31 @@ export default function MyAppointments({
           const isCustomer = appt.customer.id === currentUserId;
           const otherPerson = isCustomer ? appt.barber : appt.customer;
           const roleLabel = isCustomer ? "with" : "for";
-          const canCancel =
-            appt.status !== "CANCELLED" && appt.status !== "COMPLETED";
+          const canCancel = appt.status !== "CANCELLED" && appt.status !== "COMPLETED";
+          const eventDetails = calendarEventDetails(appt, otherPerson);
 
           return (
             <li key={appt.id}>
-              <strong>{appt.service.name}</strong> {roleLabel}{" "}
-              {otherPerson.name}
+              <strong>{appt.service.name}</strong> {roleLabel} {otherPerson.name}
               <p>
-                {new Date(appt.startTime).toLocaleString()} —{" "}
-                <em>{appt.status}</em>
+                {new Date(appt.startTime).toLocaleString()} — <em>{appt.status}</em>
               </p>
               {canCancel ? (
-                <button type="button" onClick={() => handleCancel(appt.id)}>
-                  Cancel
-                </button>
+                <>
+                    <a
+                    href={buildGoogleCalendarUrl(eventDetails)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <button type="button">Add to Google Calendar</button>
+                  </a>{" "}
+                  <button type="button" onClick={() => downloadIcsFile(eventDetails)}>
+                    Download .ics
+                  </button>{" "}
+                  <button type="button" onClick={() => handleCancel(appt.id)}>
+                    Cancel
+                  </button>
+                </>
               ) : null}
             </li>
           );
