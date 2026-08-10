@@ -7,6 +7,7 @@ import authRouter from "./routes/auth.js";
 import barbersRouter from "./routes/barbers.js";
 import reviewsRouter from "./routes/reviews.js";
 import favoritesRouter from "./routes/favorites.js";
+import paymentsRouter from "./routes/payments.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -22,6 +23,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/barbers", barbersRouter);
 app.use("/api/reviews", reviewsRouter);
 app.use("/api/favorites", favoritesRouter);
+app.use("/api/payments", paymentsRouter);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "Barbershop API is running" });

@@ -78,6 +78,79 @@ export async function getAppointmentById(req, res) {
   }
 }
 
+export async function createAppointmentRecord({
+  customerId,
+  barberId,
+  serviceId,
+  startTime,
+}) {
+  const service = await prisma.service.findUnique({
+    where: { id: serviceId },
+  });
+  if (!service) {
+    throw new Error("Service not found");
+  }
+
+  const requestedStart = new Date(startTime);
+  const requestedEnd = new Date(
+    requestedStart.getTime() + service.durationMinutes * 60000,
+  );
+
+  const barberAppointments = await prisma.appointment.findMany({
+    where: {
+      barberId,
+      status: { not: "CANCELLED" },
+    },
+    include: { service: true },
+  });
+
+  const hasConflict = barberAppointments.some((appt) => {
+    const apptEnd = new Date(
+      appt.startTime.getTime() + appt.service.durationMinutes * 60000,
+    );
+    return appt.startTime < requestedEnd && apptEnd > requestedStart;
+  });
+
+  if (hasConflict) {
+    throw new Error("This barber is already booked during that time");
+  }
+
+  const appointment = await prisma.appointment.create({
+    data: { customerId, barberId, serviceId, startTime: requestedStart },
+    include: {
+      customer: { select: { id: true, name: true, email: true, role: true } },
+      barber: { select: { id: true, name: true, email: true, role: true } },
+      service: true,
+    },
+  });
+
+  const customerEmail = buildBookingConfirmationEmail({
+    recipientName: appointment.customer.name,
+    otherPersonName: appointment.barber.name,
+    serviceName: appointment.service.name,
+    startTime: appointment.startTime,
+    role: "customer",
+  });
+  const barberEmail = buildBookingConfirmationEmail({
+    recipientName: appointment.barber.name,
+    otherPersonName: appointment.customer.name,
+    serviceName: appointment.service.name,
+    startTime: appointment.startTime,
+    role: "barber",
+  });
+
+  await sendAppointmentEmail({
+    to: appointment.customer.email,
+    ...customerEmail,
+  });
+  await sendAppointmentEmail({
+    to: appointment.barber.email,
+    ...barberEmail,
+  });
+
+  return appointment;
+}
+
 export async function createAppointment(req, res) {
   try {
     const { customerId, barberId, serviceId, startTime } = req.body;
@@ -88,75 +161,22 @@ export async function createAppointment(req, res) {
       });
     }
 
-    const service = await prisma.service.findUnique({
-      where: { id: serviceId },
-    });
-    if (!service) {
-      return res.status(404).json({ error: "Service not found" });
-    }
-
-    const requestedStart = new Date(startTime);
-    const requestedEnd = new Date(
-      requestedStart.getTime() + service.durationMinutes * 60000,
-    );
-
-    const barberAppointments = await prisma.appointment.findMany({
-      where: {
-        barberId,
-        status: { not: "CANCELLED" },
-      },
-      include: { service: true },
-    });
-
-    const hasConflict = barberAppointments.some((appt) => {
-      const apptEnd = new Date(
-        appt.startTime.getTime() + appt.service.durationMinutes * 60000,
-      );
-      return appt.startTime < requestedEnd && apptEnd > requestedStart;
-    });
-
-    if (hasConflict) {
-      return res.status(409).json({
-        error: "This barber is already booked during that time",
-      });
-    }
-
-    const appointment = await prisma.appointment.create({
-      data: { customerId, barberId, serviceId, startTime: requestedStart },
-      include: {
-        customer: { select: { id: true, name: true, email: true, role: true } },
-        barber: { select: { id: true, name: true, email: true, role: true } },
-        service: true,
-      },
-    });
-
-    const customerEmail = buildBookingConfirmationEmail({
-      recipientName: appointment.customer.name,
-      otherPersonName: appointment.barber.name,
-      serviceName: appointment.service.name,
-      startTime: appointment.startTime,
-      role: "customer",
-    });
-    const barberEmail = buildBookingConfirmationEmail({
-      recipientName: appointment.barber.name,
-      otherPersonName: appointment.customer.name,
-      serviceName: appointment.service.name,
-      startTime: appointment.startTime,
-      role: "barber",
-    });
-
-    await sendAppointmentEmail({
-      to: appointment.customer.email,
-      ...customerEmail,
-    });
-    await sendAppointmentEmail({
-      to: appointment.barber.email,
-      ...barberEmail,
+    const appointment = await createAppointmentRecord({
+      customerId,
+      barberId,
+      serviceId,
+      startTime,
     });
 
     res.status(201).json(appointment);
   } catch (error) {
     console.error("Error creating appointment:", error);
+    if (error.message === "Service not found") {
+      return res.status(404).json({ error: error.message });
+    }
+    if (error.message === "This barber is already booked during that time") {
+      return res.status(409).json({ error: error.message });
+    }
     res.status(500).json({ error: "Failed to create appointment" });
   }
 }
