@@ -3,6 +3,7 @@ import { fetchServices } from "./api/services.js";
 import { fetchBarbers } from "./api/barbers.js";
 import { fetchMyAppointments } from "./api/appointments.js";
 import { fetchMyFavorites } from "./api/favorites.js";
+import { verifyPaymentSession } from "./api/payments.js";
 import ServiceList from "./components/ServiceList.jsx";
 import BookingForm from "./components/BookingForm.jsx";
 import MyAppointments from "./components/MyAppointments.jsx";
@@ -17,6 +18,7 @@ export default function App() {
   const [myFavorites, setMyFavorites] = useState([]);
   const [status, setStatus] = useState("Loading services...");
   const [searchTerm, setSearchTerm] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState("");
 
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem("user");
@@ -77,6 +79,38 @@ export default function App() {
     loadPersonalData();
   }, [user, token]);
 
+  useEffect(() => {
+    async function handlePaymentReturn() {
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get("session_id");
+      const cancelled = params.get("payment");
+
+      if (cancelled === "cancelled") {
+        setPaymentStatus("Payment was cancelled. No appointment was booked.");
+        window.history.replaceState({}, "", window.location.pathname);
+        return;
+      }
+
+      if (!sessionId || !user || !token) {
+        return;
+      }
+
+      setPaymentStatus("Confirming your payment...");
+      try {
+        await verifyPaymentSession(sessionId, token);
+        setPaymentStatus("Payment confirmed!");
+        const appointmentData = await fetchMyAppointments(token);
+        setMyAppointments(appointmentData);
+      } catch (error) {
+        setPaymentStatus(error.message);
+      } finally {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    }
+
+    handlePaymentReturn();
+  }, [user, token]);
+
   async function handleSearch(event) {
     event.preventDefault();
     try {
@@ -135,6 +169,12 @@ export default function App() {
               </button>
             </p>
           </section>
+
+          {paymentStatus ? (
+            <section className="panel">
+              <p className="status">{paymentStatus}</p>
+            </section>
+          ) : null}
 
           {user.role === "ADMIN" ? (
             <AdminPanel

@@ -37,6 +37,7 @@ export async function createCheckoutSession(req, res) {
         },
       ],
       metadata: {
+        type: "new_booking",
         customerId: String(userId),
         barberId: String(barberId),
         serviceId: String(serviceId),
@@ -53,6 +54,66 @@ export async function createCheckoutSession(req, res) {
   }
 }
 
+export async function createAppointmentPaymentSession(req, res) {
+  try {
+    const appointmentId = Number(req.params.id);
+    const { userId } = req.user;
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: { service: true },
+    });
+
+    if (!appointment) {
+      return res.status(404).json({ error: "Appointment not found" });
+    }
+
+    if (appointment.customerId !== userId) {
+      return res
+        .status(403)
+        .json({ error: "You are not allowed to pay for this appointment" });
+    }
+
+    if (appointment.status !== "COMPLETED") {
+      return res
+        .status(400)
+        .json({ error: "This appointment is not yet marked as completed" });
+    }
+
+    if (appointment.paid) {
+      return res
+        .status(400)
+        .json({ error: "This appointment is already paid" });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: { name: appointment.service.name },
+            unit_amount: Math.round(Number(appointment.service.price) * 100),
+          },
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        type: "existing_appointment",
+        appointmentId: String(appointmentId),
+      },
+      success_url: `${FRONTEND_URL}/?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${FRONTEND_URL}/?payment=cancelled`,
+    });
+
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error("Error creating appointment payment session:", error);
+    res.status(500).json({ error: "Failed to create payment session" });
+  }
+}
+
 export async function verifySession(req, res) {
   try {
     const { sessionId } = req.query;
@@ -64,6 +125,22 @@ export async function verifySession(req, res) {
 
     if (session.payment_status !== "paid") {
       return res.status(402).json({ error: "Payment not completed" });
+    }
+
+    if (session.metadata.type === "existing_appointment") {
+      const appointmentId = Number(session.metadata.appointmentId);
+
+      const updated = await prisma.appointment.update({
+        where: { id: appointmentId },
+        data: { paid: true },
+        include: {
+          customer: { select: { id: true, name: true, email: true } },
+          barber: { select: { id: true, name: true, email: true } },
+          service: true,
+        },
+      });
+
+      return res.json(updated);
     }
 
     const { customerId, barberId, serviceId, startTime } = session.metadata;
@@ -88,7 +165,12 @@ export async function verifySession(req, res) {
       startTime,
     });
 
-    res.status(201).json(appointment);
+    const paidAppointment = await prisma.appointment.update({
+      where: { id: appointment.id },
+      data: { paid: true },
+    });
+
+    res.status(201).json({ ...appointment, paid: paidAppointment.paid });
   } catch (error) {
     console.error("Error verifying session:", error);
     if (error.message === "Service not found") {

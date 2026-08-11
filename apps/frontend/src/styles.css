@@ -384,3 +384,28 @@ button.link-button {
 .password-toggle:hover {
   text-decoration: underline;
 }
+.payment-method-group {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.payment-method-group legend {
+  font-weight: 600;
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.radio-option {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+}
+
+.radio-option input[type="radio"] {
+  width: auto;
+}

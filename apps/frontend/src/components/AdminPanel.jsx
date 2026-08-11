@@ -382,6 +382,12 @@ export default function AdminPanel({
                 <p>
                   {new Date(appt.startTime).toLocaleString()} —{" "}
                   <em>{appt.status}</em>
+                  {appt.status === "COMPLETED" ? (
+                    <>
+                      {" "}
+                      — <em>{appt.paid ? "Paid" : "Payment due"}</em>
+                    </>
+                  ) : null}
                 </p>
                 {appt.status !== "CANCELLED" ? (
                   <button
@@ -397,6 +403,14 @@ export default function AdminPanel({
                     onClick={() => handleStatusChange(appt.id, "CONFIRMED")}
                   >
                     Confirm
+                  </button>
+                ) : null}{" "}
+                {appt.status === "PENDING" || appt.status === "CONFIRMED" ? (
+                  <button
+                    type="button"
+                    onClick={() => handleStatusChange(appt.id, "COMPLETED")}
+                  >
+                    Mark Complete
                   </button>
                 ) : null}{" "}
                 <button

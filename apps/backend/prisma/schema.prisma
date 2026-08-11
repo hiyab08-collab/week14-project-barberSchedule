@@ -64,6 +64,7 @@ model Appointment {
   id        Int               @id @default(autoincrement())
   startTime DateTime
   status    AppointmentStatus @default(PENDING)
+  paid      Boolean           @default(false)
   createdAt DateTime          @default(now())
 
   customerId Int
