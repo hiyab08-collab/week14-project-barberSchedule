@@ -61,22 +61,24 @@ enum AppointmentStatus {
 }
 
 model Appointment {
-  id        Int               @id @default(autoincrement())
-  startTime DateTime
-  status    AppointmentStatus @default(PENDING)
-  paid      Boolean           @default(false)
-  createdAt DateTime          @default(now())
+  id                    Int               @id @default(autoincrement())
+  startTime             DateTime
+  status                AppointmentStatus @default(PENDING)
+  paid                  Boolean           @default(false)
+  stripePaymentIntentId String?
+  refunded              Boolean           @default(false)
+  refundedAt            DateTime?
+  createdAt             DateTime          @default(now())
 
-  customerId Int
-  customer   User @relation("CustomerAppointments", fields: [customerId], references: [id])
+  customerId            Int
+  customer              User              @relation("CustomerAppointments", fields: [customerId], references: [id])
 
-  barberId Int
-  barber   User @relation("BarberAppointments", fields: [barberId], references: [id])
+  barberId            Int
+  barber              User                @relation("BarberAppointments", fields: [barberId],references: [id])
 
-  serviceId Int
-  service   Service @relation(fields: [serviceId], references: [id])
+  serviceId          Int
+  service            Service              @relation(fields: [serviceId], references: [id])
 }
-
 model Review {
   id        Int      @id @default(autoincrement())
   rating    Int
