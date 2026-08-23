@@ -69,11 +69,11 @@ export default function MyAppointments({ appointments, currentUserId, token, onC
               ) : null}
               {canCancel ? (
                 <>
-                  
+                  <a
                     href={buildGoogleCalendarUrl(eventDetails)}
                     target="_blank"
                     rel="noopener noreferrer"
-                  <a>
+                  >
                     <button type="button">Add to Google Calendar</button>
                   </a>{" "}
                   <button type="button" onClick={() => downloadIcsFile(eventDetails)}>
