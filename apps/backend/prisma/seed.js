@@ -13,9 +13,9 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  // =========================
+  // ==========================================
   // SERVICES
-  // =========================
+  // ==========================================
 
   const services = [
     {
@@ -65,15 +65,16 @@ async function main() {
     }
   }
 
-  // =========================
+  // ==========================================
   // TEST BARBER
-  // =========================
+  // ==========================================
 
+  const barberEmail = "tony@example.com";
   const barberPassword = await bcrypt.hash("test123", 10);
 
   const existingTony = await prisma.user.findUnique({
     where: {
-      email: "tony@example.com",
+      email: barberEmail,
     },
   });
 
@@ -81,7 +82,7 @@ async function main() {
     await prisma.user.create({
       data: {
         name: "Tony Reyes",
-        email: "tony@example.com",
+        email: barberEmail,
         password: barberPassword,
         role: "BARBER",
 
@@ -93,9 +94,41 @@ async function main() {
         },
       },
     });
+
+    console.log("Test barber created.");
+  } else {
+    console.log("Test barber already exists.");
   }
 
-  console.log("Render seed complete: services and barber are ready.");
+  // ==========================================
+  // TEST ADMIN
+  // ==========================================
+
+  const adminEmail = "admin@example.com";
+  const adminPassword = await bcrypt.hash("test123", 10);
+
+  const existingAdmin = await prisma.user.findUnique({
+    where: {
+      email: adminEmail,
+    },
+  });
+
+  if (!existingAdmin) {
+    await prisma.user.create({
+      data: {
+        name: "Admin User",
+        email: adminEmail,
+        password: adminPassword,
+        role: "ADMIN",
+      },
+    });
+
+    console.log("Test admin created.");
+  } else {
+    console.log("Test admin already exists.");
+  }
+
+  console.log("Render seed complete: services, barber, and admin are ready.");
 }
 
 main()
