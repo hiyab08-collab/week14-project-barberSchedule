@@ -94,3 +94,23 @@ export async function createAppointment(appointment, token) {
 
   return data;
 }
+
+export async function completeAppointment(appointmentId, token) {
+  const response = await fetch(
+    `${API_BASE_URL}/appointments/${appointmentId}/complete`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to complete appointment");
+  }
+
+  return data;
+}

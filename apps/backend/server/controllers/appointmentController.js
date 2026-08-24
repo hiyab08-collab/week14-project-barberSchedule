@@ -543,6 +543,107 @@ export async function cancelAppointment(req, res) {
   }
 }
 
+export async function markAppointmentCompleted(req, res) {
+  try {
+    const appointmentId = Number(req.params.id);
+    const { userId, role } = req.user;
+
+    if (role !== "BARBER") {
+      return res.status(403).json({
+        error: "Only a barber can mark an appointment as completed",
+      });
+    }
+
+    const appointment = await prisma.appointment.findUnique({
+      where: {
+        id: appointmentId,
+      },
+
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+
+        barber: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+
+        service: true,
+      },
+    });
+
+    if (!appointment) {
+      return res.status(404).json({
+        error: "Appointment not found",
+      });
+    }
+
+    if (appointment.barberId !== userId) {
+      return res.status(403).json({
+        error: "You can only complete your own appointments",
+      });
+    }
+
+    if (appointment.status === "CANCELLED") {
+      return res.status(400).json({
+        error: "A cancelled appointment cannot be completed",
+      });
+    }
+
+    if (appointment.status === "COMPLETED") {
+      return res.status(400).json({
+        error: "This appointment is already completed",
+      });
+    }
+
+    const updated = await prisma.appointment.update({
+      where: {
+        id: appointmentId,
+      },
+
+      data: {
+        status: "COMPLETED",
+      },
+
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+
+        barber: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+
+        service: true,
+      },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error completing appointment:", error);
+
+    res.status(500).json({
+      error: "Failed to complete appointment",
+    });
+  }
+}
+
 // =========================
 // UPDATE APPOINTMENT
 // =========================

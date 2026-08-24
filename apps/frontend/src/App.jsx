@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+
 import { fetchServices } from "./api/services.js";
 import { fetchBarbers } from "./api/barbers.js";
 import { fetchMyAppointments } from "./api/appointments.js";
@@ -11,6 +12,7 @@ import MyAppointments from "./components/MyAppointments.jsx";
 import Cover from "./components/Cover.jsx";
 import AdminPanel from "./components/AdminPanel.jsx";
 import BarbersSection from "./components/BarbersSection.jsx";
+import BarberPanel from "./components/BarberPanel.jsx";
 
 export default function App() {
   const [services, setServices] = useState([]);
@@ -55,8 +57,6 @@ export default function App() {
   async function loadShopData() {
     setStatus("Loading services...");
 
-    // Load services separately so a barber error
-    // does not display as a services error.
     try {
       const serviceData = await fetchServices();
 
@@ -68,7 +68,6 @@ export default function App() {
       setStatus(error.message || "Failed to fetch services");
     }
 
-    // Load barbers separately.
     try {
       const barberData = await fetchBarbers();
 
@@ -96,13 +95,18 @@ export default function App() {
       }
 
       try {
-        const [appointmentData, favoriteData] = await Promise.all([
-          fetchMyAppointments(token),
-          fetchMyFavorites(token),
-        ]);
+        const appointmentData = await fetchMyAppointments(token);
 
         setMyAppointments(appointmentData);
-        setMyFavorites(favoriteData);
+
+        // Favorites are customer-facing.
+        if (user.role === "CUSTOMER") {
+          const favoriteData = await fetchMyFavorites(token);
+
+          setMyFavorites(favoriteData);
+        } else {
+          setMyFavorites([]);
+        }
       } catch (error) {
         console.error(error.message);
       }
@@ -120,6 +124,7 @@ export default function App() {
       const params = new URLSearchParams(window.location.search);
 
       const sessionId = params.get("session_id");
+
       const cancelled = params.get("payment");
 
       if (cancelled === "cancelled") {
@@ -162,16 +167,11 @@ export default function App() {
     event.preventDefault();
 
     try {
-      // Clear an old error before starting
-      // a new services search.
       setStatus("");
 
       const data = await fetchServices(searchTerm);
 
       setServices(data);
-
-      // Successful search means there is
-      // no services error to display.
       setStatus("");
     } catch (error) {
       console.error("Service search failed:", error);
@@ -275,6 +275,10 @@ export default function App() {
             </section>
           ) : null}
 
+          {/* ========================= */}
+          {/* ADMIN VIEW */}
+          {/* ========================= */}
+
           {user.role === "ADMIN" ? (
             <AdminPanel
               services={services}
@@ -282,7 +286,22 @@ export default function App() {
               token={token}
               onDataChanged={loadShopData}
             />
+          ) : user.role === "BARBER" ? (
+            /* ========================= */
+            /* BARBER VIEW */
+            /* ========================= */
+
+            <BarberPanel
+              appointments={myAppointments}
+              currentUserId={user.id}
+              token={token}
+              onAppointmentChanged={handleAppointmentsChanged}
+            />
           ) : (
+            /* ========================= */
+            /* CUSTOMER VIEW */
+            /* ========================= */
+
             <>
               <section className="grid">
                 <article className="panel">
