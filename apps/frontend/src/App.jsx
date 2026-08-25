@@ -293,6 +293,7 @@ export default function App() {
 
             <BarberPanel
               appointments={myAppointments}
+              services={services}
               currentUserId={user.id}
               token={token}
               onAppointmentChanged={handleAppointmentsChanged}

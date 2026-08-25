@@ -297,10 +297,71 @@ export async function createAppointmentRecord({
 export async function createAppointment(req, res) {
   try {
     const { customerId, barberId, serviceId, startTime } = req.body;
+    const { userId, role } = req.user;
 
-    if (!customerId || !barberId || !serviceId || !startTime) {
+    if (!serviceId || !startTime) {
       return res.status(400).json({
-        error: "customerId, barberId, serviceId, and startTime are required",
+        error: "serviceId and startTime are required",
+      });
+    }
+
+    let finalCustomerId;
+    let finalBarberId;
+
+    if (role === "CUSTOMER") {
+      if (!barberId) {
+        return res.status(400).json({
+          error: "barberId is required",
+        });
+      }
+
+      finalCustomerId = userId;
+      finalBarberId = Number(barberId);
+    } else if (role === "BARBER") {
+      if (!customerId) {
+        return res.status(400).json({
+          error: "customerId is required",
+        });
+      }
+
+      finalCustomerId = Number(customerId);
+      finalBarberId = userId;
+    } else if (role === "ADMIN") {
+      if (!customerId || !barberId) {
+        return res.status(400).json({
+          error: "customerId and barberId are required",
+        });
+      }
+
+      finalCustomerId = Number(customerId);
+      finalBarberId = Number(barberId);
+    } else {
+      return res.status(403).json({
+        error: "You are not allowed to create appointments",
+      });
+    }
+
+    const customer = await prisma.user.findUnique({
+      where: {
+        id: finalCustomerId,
+      },
+    });
+
+    if (!customer || customer.role !== "CUSTOMER") {
+      return res.status(400).json({
+        error: "A valid customer is required",
+      });
+    }
+
+    const barber = await prisma.user.findUnique({
+      where: {
+        id: finalBarberId,
+      },
+    });
+
+    if (!barber || barber.role !== "BARBER") {
+      return res.status(400).json({
+        error: "A valid barber is required",
       });
     }
 
