@@ -22,6 +22,7 @@ export async function getAllAppointments(req, res) {
             id: true,
             name: true,
             email: true,
+            phone: true,
           },
         },
 
@@ -78,6 +79,7 @@ export async function getMyAppointments(req, res) {
             id: true,
             name: true,
             email: true,
+            phone: true,
           },
         },
 
@@ -128,6 +130,7 @@ export async function getAppointmentById(req, res) {
             id: true,
             name: true,
             email: true,
+            phone: true,
           },
         },
 
@@ -234,6 +237,7 @@ export async function createAppointmentRecord({
           id: true,
           name: true,
           email: true,
+          phone: true,
           role: true,
         },
       },
@@ -251,41 +255,49 @@ export async function createAppointmentRecord({
     },
   });
 
-  const customerEmail = buildBookingConfirmationEmail({
-    recipientName: appointment.customer.name,
+  // =========================
+  // BOOKING EMAILS
+  // =========================
 
-    otherPersonName: appointment.barber.name,
+  if (appointment.customer.email) {
+    const customerEmail = buildBookingConfirmationEmail({
+      recipientName: appointment.customer.name,
 
-    serviceName: appointment.service.name,
+      otherPersonName: appointment.barber.name,
 
-    startTime: appointment.startTime,
+      serviceName: appointment.service.name,
 
-    role: "customer",
-  });
+      startTime: appointment.startTime,
 
-  const barberEmail = buildBookingConfirmationEmail({
-    recipientName: appointment.barber.name,
+      role: "customer",
+    });
 
-    otherPersonName: appointment.customer.name,
+    await sendAppointmentEmail({
+      to: appointment.customer.email,
 
-    serviceName: appointment.service.name,
+      ...customerEmail,
+    });
+  }
 
-    startTime: appointment.startTime,
+  if (appointment.barber.email) {
+    const barberEmail = buildBookingConfirmationEmail({
+      recipientName: appointment.barber.name,
 
-    role: "barber",
-  });
+      otherPersonName: appointment.customer.name,
 
-  await sendAppointmentEmail({
-    to: appointment.customer.email,
+      serviceName: appointment.service.name,
 
-    ...customerEmail,
-  });
+      startTime: appointment.startTime,
 
-  await sendAppointmentEmail({
-    to: appointment.barber.email,
+      role: "barber",
+    });
 
-    ...barberEmail,
-  });
+    await sendAppointmentEmail({
+      to: appointment.barber.email,
+
+      ...barberEmail,
+    });
+  }
 
   return appointment;
 }
@@ -297,6 +309,7 @@ export async function createAppointmentRecord({
 export async function createAppointment(req, res) {
   try {
     const { customerId, barberId, serviceId, startTime } = req.body;
+
     const { userId, role } = req.user;
 
     if (!serviceId || !startTime) {
@@ -308,6 +321,10 @@ export async function createAppointment(req, res) {
     let finalCustomerId;
     let finalBarberId;
 
+    // =========================
+    // CUSTOMER BOOKING
+    // =========================
+
     if (role === "CUSTOMER") {
       if (!barberId) {
         return res.status(400).json({
@@ -315,18 +332,33 @@ export async function createAppointment(req, res) {
         });
       }
 
+      // Customers can only book
+      // appointments for themselves.
       finalCustomerId = userId;
       finalBarberId = Number(barberId);
-    } else if (role === "BARBER") {
+    }
+
+    // =========================
+    // BARBER PHONE BOOKING
+    // =========================
+    else if (role === "BARBER") {
       if (!customerId) {
         return res.status(400).json({
           error: "customerId is required",
         });
       }
 
+      // Barber selects the customer,
+      // but barber is always themselves.
       finalCustomerId = Number(customerId);
+
       finalBarberId = userId;
-    } else if (role === "ADMIN") {
+    }
+
+    // =========================
+    // ADMIN BOOKING
+    // =========================
+    else if (role === "ADMIN") {
       if (!customerId || !barberId) {
         return res.status(400).json({
           error: "customerId and barberId are required",
@@ -334,6 +366,7 @@ export async function createAppointment(req, res) {
       }
 
       finalCustomerId = Number(customerId);
+
       finalBarberId = Number(barberId);
     } else {
       return res.status(403).json({
@@ -341,34 +374,49 @@ export async function createAppointment(req, res) {
       });
     }
 
-    const customer = await prisma.user.findUnique({
+    // =========================
+    // VERIFY CUSTOMER
+    // =========================
+
+    const customerAccount = await prisma.user.findUnique({
       where: {
         id: finalCustomerId,
       },
     });
 
-    if (!customer || customer.role !== "CUSTOMER") {
+    if (!customerAccount || customerAccount.role !== "CUSTOMER") {
       return res.status(400).json({
         error: "A valid customer is required",
       });
     }
 
-    const barber = await prisma.user.findUnique({
+    // =========================
+    // VERIFY BARBER
+    // =========================
+
+    const barberAccount = await prisma.user.findUnique({
       where: {
         id: finalBarberId,
       },
     });
 
-    if (!barber || barber.role !== "BARBER") {
+    if (!barberAccount || barberAccount.role !== "BARBER") {
       return res.status(400).json({
         error: "A valid barber is required",
       });
     }
 
+    // =========================
+    // CREATE
+    // =========================
+
     const appointment = await createAppointmentRecord({
-      customerId,
-      barberId,
-      serviceId,
+      customerId: finalCustomerId,
+
+      barberId: finalBarberId,
+
+      serviceId: Number(serviceId),
+
       startTime,
     });
 
@@ -416,6 +464,7 @@ export async function cancelAppointment(req, res) {
             id: true,
             name: true,
             email: true,
+            phone: true,
           },
         },
 
@@ -448,15 +497,14 @@ export async function cancelAppointment(req, res) {
       });
     }
 
-    // Already cancelled
     if (appointment.status === "CANCELLED") {
       return res.status(400).json({
         error: "This appointment is already cancelled",
       });
     }
 
-    // Completed appointments should
-    // no longer be cancellable/refundable.
+    // Completed services cannot
+    // be cancelled or refunded.
     if (appointment.status === "COMPLETED") {
       return res.status(400).json({
         error: "A completed appointment cannot be cancelled",
@@ -466,7 +514,7 @@ export async function cancelAppointment(req, res) {
     let refunded = false;
 
     // =========================
-    // REFUND PREPAID APPOINTMENT
+    // REFUND PREPAID PAYMENT
     // =========================
 
     if (
@@ -486,10 +534,9 @@ export async function cancelAppointment(req, res) {
       refunded = true;
     }
 
-    // If an old paid appointment
-    // does not have a Stripe ID,
-    // do not silently cancel it
-    // without refunding.
+    // Older prepaid appointments that
+    // do not have Stripe payment info
+    // should not silently cancel.
     if (
       appointment.paid &&
       !appointment.stripePaymentIntentId &&
@@ -524,6 +571,7 @@ export async function cancelAppointment(req, res) {
             id: true,
             name: true,
             email: true,
+            phone: true,
           },
         },
 
@@ -543,41 +591,45 @@ export async function cancelAppointment(req, res) {
     // CANCELLATION EMAILS
     // =========================
 
-    const customerEmail = buildCancellationEmail({
-      recipientName: updated.customer.name,
+    if (updated.customer.email) {
+      const customerEmail = buildCancellationEmail({
+        recipientName: updated.customer.name,
 
-      otherPersonName: updated.barber.name,
+        otherPersonName: updated.barber.name,
 
-      serviceName: updated.service.name,
+        serviceName: updated.service.name,
 
-      startTime: updated.startTime,
+        startTime: updated.startTime,
 
-      role: "customer",
-    });
+        role: "customer",
+      });
 
-    const barberEmail = buildCancellationEmail({
-      recipientName: updated.barber.name,
+      await sendAppointmentEmail({
+        to: updated.customer.email,
 
-      otherPersonName: updated.customer.name,
+        ...customerEmail,
+      });
+    }
 
-      serviceName: updated.service.name,
+    if (updated.barber.email) {
+      const barberEmail = buildCancellationEmail({
+        recipientName: updated.barber.name,
 
-      startTime: updated.startTime,
+        otherPersonName: updated.customer.name,
 
-      role: "barber",
-    });
+        serviceName: updated.service.name,
 
-    await sendAppointmentEmail({
-      to: updated.customer.email,
+        startTime: updated.startTime,
 
-      ...customerEmail,
-    });
+        role: "barber",
+      });
 
-    await sendAppointmentEmail({
-      to: updated.barber.email,
+      await sendAppointmentEmail({
+        to: updated.barber.email,
 
-      ...barberEmail,
-    });
+        ...barberEmail,
+      });
+    }
 
     res.json({
       ...updated,
@@ -587,10 +639,8 @@ export async function cancelAppointment(req, res) {
   } catch (error) {
     console.error("Error cancelling appointment:", error);
 
-    // Stripe can reject a refund for
-    // various reasons. Do not mark the
-    // appointment cancelled if the
-    // refund failed.
+    // Do not mark the appointment
+    // cancelled if Stripe refund fails.
     if (error?.type?.startsWith("Stripe") || error?.raw?.type) {
       return res.status(502).json({
         error:
@@ -604,9 +654,14 @@ export async function cancelAppointment(req, res) {
   }
 }
 
+// =========================
+// BARBER MARK COMPLETED
+// =========================
+
 export async function markAppointmentCompleted(req, res) {
   try {
     const appointmentId = Number(req.params.id);
+
     const { userId, role } = req.user;
 
     if (role !== "BARBER") {
@@ -626,6 +681,7 @@ export async function markAppointmentCompleted(req, res) {
             id: true,
             name: true,
             email: true,
+            phone: true,
           },
         },
 
@@ -680,6 +736,7 @@ export async function markAppointmentCompleted(req, res) {
             id: true,
             name: true,
             email: true,
+            phone: true,
           },
         },
 
@@ -707,6 +764,7 @@ export async function markAppointmentCompleted(req, res) {
 
 // =========================
 // UPDATE APPOINTMENT
+// ADMIN
 // =========================
 
 export async function updateAppointment(req, res) {
@@ -735,13 +793,13 @@ export async function updateAppointment(req, res) {
       data: {
         ...(barberId
           ? {
-              barberId,
+              barberId: Number(barberId),
             }
           : {}),
 
         ...(serviceId
           ? {
-              serviceId,
+              serviceId: Number(serviceId),
             }
           : {}),
 
@@ -764,6 +822,7 @@ export async function updateAppointment(req, res) {
             id: true,
             name: true,
             email: true,
+            phone: true,
           },
         },
 
@@ -791,6 +850,7 @@ export async function updateAppointment(req, res) {
 
 // =========================
 // DELETE APPOINTMENT
+// ADMIN
 // =========================
 
 export async function deleteAppointment(req, res) {

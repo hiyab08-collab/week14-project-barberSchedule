@@ -1,6 +1,9 @@
 import express from "express";
 
-import { getCustomers } from "../controllers/customerController.js";
+import {
+  getCustomers,
+  createCustomer,
+} from "../controllers/customerController.js";
 
 import { requireAuth } from "../middleware/auth.js";
 
@@ -16,6 +19,16 @@ function requireBarberOrAdmin(req, res, next) {
   next();
 }
 
+// =========================
+// GET CUSTOMERS
+// =========================
+
 router.get("/", requireAuth, requireBarberOrAdmin, getCustomers);
+
+// =========================
+// CREATE CUSTOMER
+// =========================
+
+router.post("/", requireAuth, requireBarberOrAdmin, createCustomer);
 
 export default router;

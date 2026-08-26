@@ -2,12 +2,18 @@ import { useEffect, useState } from "react";
 
 import { completeAppointment, createAppointment } from "../api/appointments.js";
 
-import { fetchCustomers } from "../api/customers.js";
+import { fetchCustomers, createCustomer } from "../api/customers.js";
 
 const emptyBookingForm = {
   customerId: "",
   serviceId: "",
   startTime: "",
+};
+
+const emptyCustomerForm = {
+  name: "",
+  email: "",
+  phone: "",
 };
 
 export default function BarberPanel({
@@ -21,11 +27,17 @@ export default function BarberPanel({
   const [workingId, setWorkingId] = useState(null);
 
   const [customers, setCustomers] = useState([]);
+
   const [bookingForm, setBookingForm] = useState(emptyBookingForm);
+
+  const [customerForm, setCustomerForm] = useState(emptyCustomerForm);
 
   const [bookingStatus, setBookingStatus] = useState("");
 
+  const [customerStatus, setCustomerStatus] = useState("");
+
   const [booking, setBooking] = useState(false);
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
 
   // =========================
   // BARBER'S APPOINTMENTS
@@ -47,19 +59,19 @@ export default function BarberPanel({
   // LOAD CUSTOMERS
   // =========================
 
-  useEffect(() => {
-    async function loadCustomers() {
-      try {
-        setError("");
+  async function loadCustomers() {
+    try {
+      setError("");
 
-        const data = await fetchCustomers(token);
+      const data = await fetchCustomers(token);
 
-        setCustomers(data);
-      } catch (err) {
-        setError(err.message || "Unable to load customers.");
-      }
+      setCustomers(data);
+    } catch (err) {
+      setError(err.message || "Unable to load customers.");
     }
+  }
 
+  useEffect(() => {
     if (token) {
       loadCustomers();
     }
@@ -89,6 +101,55 @@ export default function BarberPanel({
   }
 
   // =========================
+  // NEW CUSTOMER FORM
+  // =========================
+
+  function handleCustomerChange(event) {
+    const { name, value } = event.target;
+
+    setCustomerForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  }
+
+  async function handleCreateCustomer(event) {
+    event.preventDefault();
+
+    setCustomerStatus("");
+
+    try {
+      setCreatingCustomer(true);
+
+      const newCustomer = await createCustomer(
+        {
+          name: customerForm.name,
+          email: customerForm.email,
+          phone: customerForm.phone,
+        },
+        token,
+      );
+
+      setCustomerStatus("Customer created successfully.");
+
+      setCustomerForm(emptyCustomerForm);
+
+      await loadCustomers();
+
+      // Automatically select the new
+      // customer for booking.
+      setBookingForm((current) => ({
+        ...current,
+        customerId: String(newCustomer.id),
+      }));
+    } catch (err) {
+      setCustomerStatus(err.message || "Unable to create customer.");
+    } finally {
+      setCreatingCustomer(false);
+    }
+  }
+
+  // =========================
   // PHONE BOOKING FORM
   // =========================
 
@@ -113,8 +174,6 @@ export default function BarberPanel({
         {
           customerId: Number(bookingForm.customerId),
 
-          // The logged-in barber is always
-          // assigned to this appointment.
           barberId: currentUserId,
 
           serviceId: Number(bookingForm.serviceId),
@@ -172,7 +231,9 @@ export default function BarberPanel({
           Customer: <strong>{appt.customer.name}</strong>
         </p>
 
-        <p>Email: {appt.customer.email}</p>
+        {appt.customer.email ? <p>Email: {appt.customer.email}</p> : null}
+
+        {appt.customer.phone ? <p>Phone: {appt.customer.phone}</p> : null}
 
         <p>{new Date(appt.startTime).toLocaleString()}</p>
 
@@ -207,8 +268,8 @@ export default function BarberPanel({
         <h2>Barber Dashboard</h2>
 
         <p>
-          Manage your appointments and book appointments for customers who call
-          the shop.
+          Manage appointments, create customers, and book appointments for
+          callers.
         </p>
 
         {error ? <p className="status">{error}</p> : null}
@@ -216,9 +277,52 @@ export default function BarberPanel({
 
       <section className="grid">
         <article className="panel">
-          <h2>Book for a Customer</h2>
+          <h2>Add New Customer</h2>
 
-          <p>Use this form when a customer calls to schedule an appointment.</p>
+          <form className="form" onSubmit={handleCreateCustomer}>
+            <label>
+              Name
+              <input
+                type="text"
+                name="name"
+                value={customerForm.name}
+                onChange={handleCustomerChange}
+                required
+              />
+            </label>
+
+            <label>
+              Phone
+              <input
+                type="tel"
+                name="phone"
+                value={customerForm.phone}
+                onChange={handleCustomerChange}
+                placeholder="Optional if email is provided"
+              />
+            </label>
+
+            <label>
+              Email
+              <input
+                type="email"
+                name="email"
+                value={customerForm.email}
+                onChange={handleCustomerChange}
+                placeholder="Optional if phone is provided"
+              />
+            </label>
+
+            {customerStatus ? <p className="status">{customerStatus}</p> : null}
+
+            <button type="submit" disabled={creatingCustomer}>
+              {creatingCustomer ? "Creating..." : "Add Customer"}
+            </button>
+          </form>
+        </article>
+
+        <article className="panel">
+          <h2>Book for a Customer</h2>
 
           <form className="form" onSubmit={handlePhoneBooking}>
             <label>
@@ -233,7 +337,12 @@ export default function BarberPanel({
 
                 {customers.map((customer) => (
                   <option key={customer.id} value={customer.id}>
-                    {customer.name} — {customer.email}
+                    {customer.name}
+                    {customer.email
+                      ? ` — ${customer.email}`
+                      : customer.phone
+                        ? ` — ${customer.phone}`
+                        : ""}
                   </option>
                 ))}
               </select>
@@ -251,8 +360,7 @@ export default function BarberPanel({
 
                 {services.map((service) => (
                   <option key={service.id} value={service.id}>
-                    {service.name} ($
-                    {service.price})
+                    {service.name} (${service.price})
                   </option>
                 ))}
               </select>
@@ -276,7 +384,9 @@ export default function BarberPanel({
             </button>
           </form>
         </article>
+      </section>
 
+      <section className="grid">
         <article className="panel">
           <h2>Scheduled Appointments</h2>
 
