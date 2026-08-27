@@ -770,7 +770,7 @@ export async function recordAppointmentPayment(req, res) {
   try {
     const appointmentId = Number(req.params.id);
     const { userId, role } = req.user;
-    const { paymentMethod } = req.body;
+    const { paymentMethod, paymentNote } = req.body;
 
     const allowedMethods = ["CASH", "CARD", "OTHER"];
 
@@ -783,6 +783,20 @@ export async function recordAppointmentPayment(req, res) {
     if (!allowedMethods.includes(paymentMethod)) {
       return res.status(400).json({
         error: "Payment method must be CASH, CARD, or OTHER",
+      });
+    }
+
+    if (paymentMethod === "CARD") {
+      return res.status(400).json({
+        error: "Card payments must be completed through Stripe Checkout",
+      });
+    }
+
+    const normalizedPaymentNote = paymentNote?.trim() || null;
+
+    if (paymentMethod === "OTHER" && !normalizedPaymentNote) {
+      return res.status(400).json({
+        error: "A payment note is required for OTHER payments",
       });
     }
 
@@ -851,6 +865,8 @@ export async function recordAppointmentPayment(req, res) {
       data: {
         paid: true,
         paymentMethod,
+        paymentNote:
+          paymentMethod === "OTHER" ? normalizedPaymentNote : null,
         paidAt: new Date(),
       },
 

@@ -106,7 +106,7 @@ export async function createAppointmentPaymentSession(req, res) {
   try {
     const appointmentId = Number(req.params.id);
 
-    const { userId } = req.user;
+    const { userId, role } = req.user;
 
     const appointment = await prisma.appointment.findUnique({
       where: {
@@ -124,7 +124,11 @@ export async function createAppointmentPaymentSession(req, res) {
       });
     }
 
-    if (appointment.customerId !== userId) {
+    const isCustomer = appointment.customerId === userId;
+    const isAssignedBarber =
+      role === "BARBER" && appointment.barberId === userId;
+
+    if (!isCustomer && !isAssignedBarber) {
       return res.status(403).json({
         error: "You are not allowed to pay for this appointment",
       });
@@ -242,6 +246,10 @@ export async function verifySession(req, res) {
 
         data: {
           paid: true,
+
+          paymentMethod: "CARD",
+          paymentNote: null,
+          paidAt: new Date(),
 
           stripePaymentIntentId: paymentIntentId,
 

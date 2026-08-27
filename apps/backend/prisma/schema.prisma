@@ -67,6 +67,7 @@ model Appointment {
   status                AppointmentStatus @default(PENDING)
   paid                  Boolean           @default(false)
   paymentMethod         String?
+  paymentNote           String?
   paidAt                DateTime?
   stripePaymentIntentId String?
   refunded              Boolean           @default(false)

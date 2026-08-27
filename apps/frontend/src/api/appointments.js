@@ -118,6 +118,7 @@ export async function completeAppointment(appointmentId, token) {
 export async function recordAppointmentPayment(
   appointmentId,
   paymentMethod,
+  paymentNote,
   token,
 ) {
   const response = await fetch(
@@ -130,6 +131,7 @@ export async function recordAppointmentPayment(
       },
       body: JSON.stringify({
         paymentMethod,
+        paymentNote,
       }),
     },
   );

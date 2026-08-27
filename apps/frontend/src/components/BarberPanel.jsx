@@ -7,6 +7,7 @@ import {
 } from "../api/appointments.js";
 
 import { fetchCustomers, createCustomer } from "../api/customers.js";
+import { createAppointmentPaymentSession } from "../api/payments.js";
 
 const emptyBookingForm = {
   customerId: "",
@@ -44,6 +45,7 @@ export default function BarberPanel({
   const [creatingCustomer, setCreatingCustomer] = useState(false);
 
   const [paymentMethods, setPaymentMethods] = useState({});
+  const [paymentNotes, setPaymentNotes] = useState({});
 
   const [recordingPaymentId, setRecordingPaymentId] = useState(null);
 
@@ -121,6 +123,30 @@ export default function BarberPanel({
 
   async function handleRecordPayment(appointmentId) {
     const paymentMethod = paymentMethods[appointmentId] || "CASH";
+    const paymentNote = paymentNotes[appointmentId]?.trim() || "";
+
+    if (paymentMethod === "OTHER" && !paymentNote) {
+      setError("Enter the payment type before recording an Other payment.");
+      return;
+    }
+
+    if (paymentMethod === "CARD") {
+      try {
+        setError("");
+        setRecordingPaymentId(appointmentId);
+
+        const { url } = await createAppointmentPaymentSession(
+          appointmentId,
+          token,
+        );
+
+        window.location.href = url;
+      } catch (err) {
+        setError(err.message || "Unable to start card payment.");
+        setRecordingPaymentId(null);
+      }
+      return;
+    }
 
     if (
       !window.confirm(`Record this appointment as paid by ${paymentMethod}?`)
@@ -132,7 +158,12 @@ export default function BarberPanel({
       setError("");
       setRecordingPaymentId(appointmentId);
 
-      await recordAppointmentPayment(appointmentId, paymentMethod, token);
+      await recordAppointmentPayment(
+        appointmentId,
+        paymentMethod,
+        paymentNote,
+        token,
+      );
 
       await onAppointmentChanged();
     } catch (err) {
@@ -294,6 +325,12 @@ export default function BarberPanel({
           </p>
         ) : null}
 
+        {appt.paid && appt.paymentMethod === "OTHER" && appt.paymentNote ? (
+          <p>
+            Payment note: <strong>{appt.paymentNote}</strong>
+          </p>
+        ) : null}
+
         {appt.paid && appt.paidAt ? (
           <p>Paid: {new Date(appt.paidAt).toLocaleString()}</p>
         ) : null}
@@ -326,14 +363,35 @@ export default function BarberPanel({
               </select>
             </label>
 
+            {(paymentMethods[appt.id] || "CASH") === "OTHER" ? (
+              <label>
+                Payment Type
+                <input
+                  type="text"
+                  required
+                  maxLength={100}
+                  placeholder="e.g. Zelle, Cash App, Venmo"
+                  value={paymentNotes[appt.id] || ""}
+                  onChange={(event) =>
+                    setPaymentNotes((current) => ({
+                      ...current,
+                      [appt.id]: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            ) : null}
+
             <button
               type="button"
               disabled={recordingPaymentId === appt.id}
               onClick={() => handleRecordPayment(appt.id)}
             >
               {recordingPaymentId === appt.id
-                ? "Recording..."
-                : "Record Payment"}
+                ? "Working..."
+                : (paymentMethods[appt.id] || "CASH") === "CARD"
+                  ? "Continue to Stripe"
+                  : "Record Payment"}
             </button>
           </div>
         ) : null}
