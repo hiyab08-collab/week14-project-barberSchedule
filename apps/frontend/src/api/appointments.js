@@ -114,3 +114,31 @@ export async function completeAppointment(appointmentId, token) {
 
   return data;
 }
+
+export async function recordAppointmentPayment(
+  appointmentId,
+  paymentMethod,
+  token,
+) {
+  const response = await fetch(
+    `${API_BASE_URL}/appointments/${appointmentId}/record-payment`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        paymentMethod,
+      }),
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to record payment");
+  }
+
+  return data;
+}

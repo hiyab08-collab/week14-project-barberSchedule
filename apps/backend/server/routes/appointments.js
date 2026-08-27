@@ -9,6 +9,7 @@ import {
   updateAppointment,
   deleteAppointment,
   markAppointmentCompleted,
+  recordAppointmentPayment,
 } from "../controllers/appointmentController.js";
 
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
@@ -50,6 +51,12 @@ router.patch("/:id/cancel", requireAuth, cancelAppointment);
 // =========================
 
 router.patch("/:id/complete", requireAuth, markAppointmentCompleted);
+
+// =========================
+// BARBER RECORD PAYMENT
+// =========================
+
+router.patch("/:id/record-payment", requireAuth, recordAppointmentPayment);
 
 // =========================
 // ADMIN UPDATE

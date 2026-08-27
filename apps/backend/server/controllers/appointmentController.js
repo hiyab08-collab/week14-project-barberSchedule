@@ -763,6 +763,130 @@ export async function markAppointmentCompleted(req, res) {
 }
 
 // =========================
+// BARBER RECORD PAYMENT
+// =========================
+
+export async function recordAppointmentPayment(req, res) {
+  try {
+    const appointmentId = Number(req.params.id);
+    const { userId, role } = req.user;
+    const { paymentMethod } = req.body;
+
+    const allowedMethods = ["CASH", "CARD", "OTHER"];
+
+    if (role !== "BARBER") {
+      return res.status(403).json({
+        error: "Only a barber can record an in-person payment",
+      });
+    }
+
+    if (!allowedMethods.includes(paymentMethod)) {
+      return res.status(400).json({
+        error: "Payment method must be CASH, CARD, or OTHER",
+      });
+    }
+
+    const appointment = await prisma.appointment.findUnique({
+      where: {
+        id: appointmentId,
+      },
+
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+
+        barber: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+
+        service: true,
+      },
+    });
+
+    if (!appointment) {
+      return res.status(404).json({
+        error: "Appointment not found",
+      });
+    }
+
+    if (appointment.barberId !== userId) {
+      return res.status(403).json({
+        error: "You can only record payment for your own appointments",
+      });
+    }
+
+    if (appointment.status !== "COMPLETED") {
+      return res.status(400).json({
+        error: "The service must be completed before recording payment",
+      });
+    }
+
+    if (appointment.refunded) {
+      return res.status(400).json({
+        error: "A refunded appointment cannot be marked paid",
+      });
+    }
+
+    if (appointment.paid) {
+      return res.status(400).json({
+        error: "This appointment is already paid",
+      });
+    }
+
+    const updated = await prisma.appointment.update({
+      where: {
+        id: appointmentId,
+      },
+
+      data: {
+        paid: true,
+        paymentMethod,
+        paidAt: new Date(),
+      },
+
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+
+        barber: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+
+        service: true,
+      },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error recording appointment payment:", error);
+
+    res.status(500).json({
+      error: "Failed to record payment",
+    });
+  }
+}
+
+// =========================
 // UPDATE APPOINTMENT
 // ADMIN
 // =========================

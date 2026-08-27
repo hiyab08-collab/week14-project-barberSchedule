@@ -20,10 +20,10 @@ model User {
   barberAppointments   Appointment[]  @relation("BarberAppointments")
   reviewsWritten       Review[]       @relation("CustomerReviews")
   reviewsReceived      Review[]       @relation("BarberReviews")
-  likesGiven           BarberLike[] @relation("LikesGiven")
-  likesReceived        BarberLike[] @relation("LikesReceived")
-  favoritesGiven       Favorite[] @relation("FavoritesGiven")
-  favoritedByCustomers Favorite[] @relation("FavoritedBarber")
+  likesGiven           BarberLike[]   @relation("LikesGiven")
+  likesReceived        BarberLike[]   @relation("LikesReceived")
+  favoritesGiven       Favorite[]     @relation("FavoritesGiven")
+  favoritedByCustomers Favorite[]     @relation("FavoritedBarber")
 }
 
 enum Role {
@@ -71,20 +71,21 @@ model Appointment {
   refundedAt            DateTime?
   createdAt             DateTime          @default(now())
 
-  customerId            Int
-  customer              User              @relation("CustomerAppointments", fields: [customerId], references: [id])
+  customerId Int
+  customer   User @relation("CustomerAppointments", fields: [customerId], references: [id])
 
-  barberId            Int
-  barber              User                @relation("BarberAppointments", fields: [barberId],references: [id])
+  barberId Int
+  barber   User @relation("BarberAppointments", fields: [barberId], references: [id])
 
-  serviceId          Int
-  service            Service              @relation(fields: [serviceId], references: [id])
+  serviceId Int
+  service   Service @relation(fields: [serviceId], references: [id])
 }
+
 model Review {
   id        Int      @id @default(autoincrement())
   rating    Int
   comment   String?
-  mediaUrl String?
+  mediaUrl  String?
   mediaType String?
   createdAt DateTime @default(now())
 

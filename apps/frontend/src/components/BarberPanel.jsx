@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 
-import { completeAppointment, createAppointment } from "../api/appointments.js";
+import {
+  completeAppointment,
+  createAppointment,
+  recordAppointmentPayment,
+} from "../api/appointments.js";
 
 import { fetchCustomers, createCustomer } from "../api/customers.js";
 
@@ -38,6 +42,10 @@ export default function BarberPanel({
 
   const [booking, setBooking] = useState(false);
   const [creatingCustomer, setCreatingCustomer] = useState(false);
+
+  const [paymentMethods, setPaymentMethods] = useState({});
+
+  const [recordingPaymentId, setRecordingPaymentId] = useState(null);
 
   // =========================
   // BARBER'S APPOINTMENTS
@@ -101,6 +109,40 @@ export default function BarberPanel({
   }
 
   // =========================
+  // RECORD PAYMENT
+  // =========================
+
+  function handlePaymentMethodChange(appointmentId, value) {
+    setPaymentMethods((current) => ({
+      ...current,
+      [appointmentId]: value,
+    }));
+  }
+
+  async function handleRecordPayment(appointmentId) {
+    const paymentMethod = paymentMethods[appointmentId] || "CASH";
+
+    if (
+      !window.confirm(`Record this appointment as paid by ${paymentMethod}?`)
+    ) {
+      return;
+    }
+
+    try {
+      setError("");
+      setRecordingPaymentId(appointmentId);
+
+      await recordAppointmentPayment(appointmentId, paymentMethod, token);
+
+      await onAppointmentChanged();
+    } catch (err) {
+      setError(err.message || "Unable to record payment.");
+    } finally {
+      setRecordingPaymentId(null);
+    }
+  }
+
+  // =========================
   // NEW CUSTOMER FORM
   // =========================
 
@@ -136,8 +178,6 @@ export default function BarberPanel({
 
       await loadCustomers();
 
-      // Automatically select the new
-      // customer for booking.
       setBookingForm((current) => ({
         ...current,
         customerId: String(newCustomer.id),
@@ -223,6 +263,9 @@ export default function BarberPanel({
     const canComplete =
       appt.status !== "COMPLETED" && appt.status !== "CANCELLED";
 
+    const needsPayment =
+      appt.status === "COMPLETED" && !appt.paid && !appt.refunded;
+
     return (
       <li key={appt.id}>
         <strong>{appt.service.name}</strong>
@@ -245,6 +288,16 @@ export default function BarberPanel({
           <em>{getPaymentLabel(appt)}</em>
         </p>
 
+        {appt.paid && appt.paymentMethod ? (
+          <p>
+            Payment method: <strong>{appt.paymentMethod}</strong>
+          </p>
+        ) : null}
+
+        {appt.paid && appt.paidAt ? (
+          <p>Paid: {new Date(appt.paidAt).toLocaleString()}</p>
+        ) : null}
+
         {canComplete ? (
           <button
             type="button"
@@ -253,6 +306,36 @@ export default function BarberPanel({
           >
             {workingId === appt.id ? "Completing..." : "Mark Completed"}
           </button>
+        ) : null}
+
+        {needsPayment ? (
+          <div className="form">
+            <label>
+              Payment Method
+              <select
+                value={paymentMethods[appt.id] || "CASH"}
+                onChange={(event) =>
+                  handlePaymentMethodChange(appt.id, event.target.value)
+                }
+              >
+                <option value="CASH">Cash</option>
+
+                <option value="CARD">Card</option>
+
+                <option value="OTHER">Other</option>
+              </select>
+            </label>
+
+            <button
+              type="button"
+              disabled={recordingPaymentId === appt.id}
+              onClick={() => handleRecordPayment(appt.id)}
+            >
+              {recordingPaymentId === appt.id
+                ? "Recording..."
+                : "Record Payment"}
+            </button>
+          </div>
         ) : null}
       </li>
     );
@@ -360,7 +443,8 @@ export default function BarberPanel({
 
                 {services.map((service) => (
                   <option key={service.id} value={service.id}>
-                    {service.name} (${service.price})
+                    {service.name} ($
+                    {service.price})
                   </option>
                 ))}
               </select>
