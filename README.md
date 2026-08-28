@@ -174,13 +174,13 @@ Subscribe it to `checkout.session.completed` and `checkout.session.async_payment
 
 ### Appointment reminders
 
-Run a scheduled POST request once per hour to:
+The repository includes `.github/workflows/appointment-reminders.yml`, which sends a scheduled POST request once per hour to:
 
 ```
 https://your-backend.example.com/api/reminders/run
 ```
 
-Include the header `x-reminder-secret` with the same value as `REMINDER_JOB_SECRET`. The job emails the customer and barber about appointments approximately 24 hours away and records `reminderSentAt` to prevent duplicates. Customers without an email are skipped.
+Add an encrypted GitHub Actions repository secret named `REMINDER_JOB_SECRET` with the same value used by the backend. The workflow includes it in the `x-reminder-secret` header. The job emails the customer and barber about appointments approximately 24 hours away and records `reminderSentAt` to prevent duplicates. Customers without an email are skipped. It can also be tested manually from the repository's Actions tab with **Run workflow**.
 
 Payment receipts are emailed after Cash, Other, or Card payment. Card receipts contain only the card brand and last four digits; full card data is never stored.
 

@@ -1,0 +1,19 @@
+name: Appointment reminders
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  send-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder processing
+        env:
+          REMINDER_JOB_SECRET: ${{ secrets.REMINDER_JOB_SECRET }}
+        run: |
+          curl --fail --show-error --silent \
+            --request POST \
+            --header "x-reminder-secret: $REMINDER_JOB_SECRET" \
+            https://barber-schedule-backend.onrender.com/api/reminders/run
