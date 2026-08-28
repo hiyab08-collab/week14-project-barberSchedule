@@ -44,6 +44,33 @@ export default function MyAppointments({
     }
   }
 
+  function downloadReceipt(appt) {
+    const cardDescription = appt.cardLast4
+      ? `${appt.cardBrand || "Card"} ending in ${appt.cardLast4}`
+      : "Card";
+    const method = appt.paymentMethod === "CARD"
+      ? cardDescription
+      : appt.paymentMethod === "OTHER"
+        ? appt.paymentNote || "Other"
+        : "Cash";
+    const receipt = [
+      "SlicedBy_10 Payment Receipt",
+      `Receipt #${appt.id}`,
+      `Service: ${appt.service.name}`,
+      `Barber: ${appt.barber.name}`,
+      `Appointment: ${formatDateTime(appt.startTime)}`,
+      `Amount: $${Number(appt.service.price).toFixed(2)}`,
+      `Payment method: ${method}`,
+      `Paid: ${formatDateTime(appt.paidAt)}`,
+    ].join("\n");
+    const url = URL.createObjectURL(new Blob([receipt], { type: "text/plain" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `receipt-${appt.id}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   function calendarEventDetails(appt, otherPerson) {
     return {
       title: `${appt.service.name} at SlicedBy_N10`,
@@ -126,6 +153,23 @@ export default function MyAppointments({
                   Pay Now ($
                   {appt.service.price})
                 </button>
+              ) : null}
+              {isCustomer && appt.paid ? (
+                <>
+                  <p>
+                    Payment method: <strong>
+                      {appt.paymentMethod === "CARD" && appt.cardLast4
+                        ? `${appt.cardBrand || "Card"} ending in ${appt.cardLast4}`
+                        : appt.paymentMethod === "OTHER"
+                          ? appt.paymentNote || "OTHER"
+                          : appt.paymentMethod}
+                    </strong>
+                  </p>
+                  {appt.paidAt ? <p>Paid: {formatDateTime(appt.paidAt)}</p> : null}
+                  <button type="button" onClick={() => downloadReceipt(appt)}>
+                    Download Receipt
+                  </button>{" "}
+                </>
               ) : null}
               {/* ========================= */}
               {/* UPCOMING APPOINTMENT */}
