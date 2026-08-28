@@ -6,3 +6,4 @@ coverage/
 apps/backend/prisma/generated/
 apps/backend/dev.db
 apps/backend/uploads/
+apps/backend/session_url.txt

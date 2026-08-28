@@ -16,6 +16,13 @@ Small barbershops often rely on phone calls or walk-ins to manage appointments, 
 - Automatic double-booking prevention (checks for real time-range overlaps against a barber's existing appointments)
 - View and cancel your own appointments
 - Admin panel: full create/edit/delete for services and barbers, and confirm/cancel/delete for any appointment
+- Barber dashboard: create phone customers, book on their behalf, complete appointments, and record payments
+- Pay after service with Stripe Checkout in test mode
+- Record in-person cash payments or alternative payments such as Zelle, Venmo, or Cash App
+- Require and display a note identifying alternative payment types
+- Record payment timestamps and support eligible Stripe refunds
+- Add appointments to Google Calendar or download an `.ics` calendar event
+- Progressive Web App (PWA) support
 - Dark/light mode toggle with a persistent theme preference
 - Custom branded UI (typography, color palette, signature striped accent)
 
@@ -77,12 +84,20 @@ cd apps/backend
 npm install
 ```
 
-Create a `.env` file in `apps/backend` (see `.env.example` for the format), with your own values:
+Create a `.env` file in `apps/backend` with your own values:
 ```
 DATABASE_URL="postgresql://postgres:postgres@localhost:5433/barbershop-db"
 PORT=5000
 JWT_SECRET="a-long-random-string"
+FRONTEND_URL="http://localhost:5173"
+STRIPE_SECRET_KEY="sk_test_..."
+RESEND_API_KEY="re_..."
+CLOUDINARY_CLOUD_NAME="your-cloud-name"
+CLOUDINARY_API_KEY="your-api-key"
+CLOUDINARY_API_SECRET="your-api-secret"
 ```
+
+Stripe should remain in test mode for project demonstrations. Resend and Cloudinary values are needed only for the email and media-upload features that use those services.
 
 Start PostgreSQL (via Docker):
 ```
@@ -113,6 +128,35 @@ npm run dev
 ```
 
 Open the URL Vite prints (typically `http://localhost:5173`).
+
+For a deployed frontend, also set:
+
+```
+VITE_API_URL="https://your-backend.example.com/api"
+```
+
+## Payment Flows
+
+- **Cash:** the assigned barber records the completed appointment as paid.
+- **Card:** the customer or assigned barber continues to Stripe Checkout. The appointment is marked paid after a successful test payment is verified.
+- **Other:** the barber must identify the payment type, such as Zelle, Venmo, or Cash App. The note is saved with the completed appointment.
+
+For Stripe's standard successful test payment, use card number `4242 4242 4242 4242`, any future expiration date, any three-digit CVC, and a valid-looking ZIP code. Never use a real card while the project is in test mode.
+
+## Final Demonstration Checklist
+
+1. Sign up and log in as a customer.
+2. Browse services and barbers, then create and cancel a test appointment.
+3. Create a phone customer and appointment from the barber dashboard.
+4. Mark an appointment completed and record a Cash payment.
+5. Record an Other payment and verify its required note is displayed.
+6. Complete a Card payment through Stripe Checkout and verify `CARD` and the paid timestamp appear after returning to the app.
+7. Confirm the admin can manage services, barbers, and appointments.
+8. Confirm reviews, favorites, calendar links, theme selection, and the PWA still behave as expected.
+
+## Project Status
+
+The application is a completed project MVP intended for demonstration and portfolio use. Before a real commercial launch, future work should include a Stripe webhook, automated tests, stricter CORS configuration, rate limiting, security headers, password recovery, and production monitoring.
 
 ## AI Usage Reflection
 
