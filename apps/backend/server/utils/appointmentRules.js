@@ -15,3 +15,8 @@ export function appointmentsOverlap(
 
   return requestedStartDate < existingEnd && existingStartDate < requestedEnd;
 }
+
+export function isFutureAppointmentTime(value, now = new Date()) {
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date.getTime() > now.getTime();
+}

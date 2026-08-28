@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createAppointment } from "../api/appointments.js";
 import { createCheckoutSession } from "../api/payments.js";
+import { minimumBookingDateTime } from "../utils/dateTime.js";
 
 const emptyForm = { barberId: "", serviceId: "", startTime: "" };
 
@@ -102,6 +103,7 @@ export default function BookingForm({
           Date & Time
           <input
             type="datetime-local"
+            min={minimumBookingDateTime()}
             name="startTime"
             value={form.startTime}
             onChange={handleChange}

@@ -5,6 +5,7 @@ import {
   buildCardPaymentData,
   canManageAppointmentPayment,
 } from "../utils/paymentRules.js";
+import { isFutureAppointmentTime } from "../utils/appointmentRules.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -322,6 +323,10 @@ export async function verifySession(req, res) {
 
     if (!sessionId) {
       return res.status(400).json({ error: "sessionId is required" });
+    }
+
+    if (!isFutureAppointmentTime(startTime)) {
+      return res.status(400).json({ error: "Appointment time must be in the future" });
     }
 
     const session = await stripe.checkout.sessions.retrieve(sessionId);

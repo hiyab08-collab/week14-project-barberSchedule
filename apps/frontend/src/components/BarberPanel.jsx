@@ -8,7 +8,7 @@ import {
 
 import { fetchCustomers, createCustomer } from "../api/customers.js";
 import { createAppointmentPaymentSession } from "../api/payments.js";
-import { formatDateTime } from "../utils/dateTime.js";
+import { formatDateTime, minimumBookingDateTime } from "../utils/dateTime.js";
 
 const emptyBookingForm = {
   customerId: "",
@@ -513,6 +513,7 @@ export default function BarberPanel({
               Date & Time
               <input
                 type="datetime-local"
+                min={minimumBookingDateTime()}
                 name="startTime"
                 value={bookingForm.startTime}
                 onChange={handleBookingChange}

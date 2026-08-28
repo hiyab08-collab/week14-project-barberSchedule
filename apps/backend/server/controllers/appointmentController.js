@@ -10,7 +10,7 @@ import {
   shouldRefundAppointment,
   validateManualPayment,
 } from "../utils/paymentRules.js";
-import { appointmentsOverlap } from "../utils/appointmentRules.js";
+import { appointmentsOverlap, isFutureAppointmentTime } from "../utils/appointmentRules.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -197,6 +197,10 @@ export async function createAppointmentRecord({
   }
 
   const requestedStart = new Date(startTime);
+
+  if (!isFutureAppointmentTime(requestedStart)) {
+    throw new Error("Appointment time must be in the future");
+  }
 
   const barberAppointments = await prisma.appointment.findMany({
     where: {
@@ -783,6 +787,11 @@ export async function recordAppointmentPayment(req, res) {
 
     if (paymentValidation.error) {
       return res.status(400).json({ error: paymentValidation.error });
+    }
+
+
+    if (error.message === "Appointment time must be in the future") {
+      return res.status(400).json({ error: error.message });
     }
 
     const appointment = await prisma.appointment.findUnique({
