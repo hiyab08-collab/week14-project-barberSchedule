@@ -5,6 +5,7 @@ import {
   sendAppointmentEmail,
   buildBookingConfirmationEmail,
   buildCancellationEmail,
+  buildReceiptEmail,
 } from "../config/email.js";
 import {
   shouldRefundAppointment,
@@ -884,6 +885,14 @@ export async function recordAppointmentPayment(req, res) {
         service: true,
       },
     });
+
+    if (updated.customer.email) {
+      await sendAppointmentEmail({
+        to: updated.customer.email,
+        ...buildReceiptEmail({ customerName: updated.customer.name, serviceName: updated.service.name, barberName: updated.barber.name, amount: updated.service.price, paymentMethod: updated.paymentMethod, paymentNote: updated.paymentNote, paidAt: updated.paidAt }),
+      });
+      await prisma.appointment.update({ where: { id: updated.id }, data: { receiptSentAt: new Date() } });
+    }
 
     res.json(updated);
   } catch (error) {

@@ -30,13 +30,15 @@ export function validateManualPayment(paymentMethod, paymentNote) {
   return { note: paymentMethod === 'OTHER' ? note : null };
 }
 
-export function buildCardPaymentData(appointment, paymentIntentId, now = new Date()) {
+export function buildCardPaymentData(appointment, paymentIntentId, now = new Date(), card = {}) {
   return {
     paid: true,
     paymentMethod: "CARD",
     paymentNote: null,
     paidAt: appointment.paidAt || now,
     stripePaymentIntentId: paymentIntentId,
+    cardBrand: card.brand || null,
+    cardLast4: card.last4 || null,
     refunded: false,
     refundedAt: null,
   };

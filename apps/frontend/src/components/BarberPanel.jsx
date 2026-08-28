@@ -322,7 +322,11 @@ export default function BarberPanel({
 
         {appt.paid && appt.paymentMethod ? (
           <p>
-            Payment method: <strong>{appt.paymentMethod}</strong>
+            Payment method: <strong>
+              {appt.paymentMethod === "CARD" && appt.cardLast4
+                ? `${appt.cardBrand || "Card"} ending in ${appt.cardLast4}`
+                : appt.paymentMethod}
+            </strong>
           </p>
         ) : null}
 

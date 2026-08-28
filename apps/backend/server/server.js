@@ -9,6 +9,7 @@ import reviewsRouter from "./routes/reviews.js";
 import favoritesRouter from "./routes/favorites.js";
 import paymentsRouter from "./routes/payments.js";
 import customersRouter from "./routes/customers.js";
+import remindersRouter from "./routes/reminders.js";
 import { stripeWebhook } from "./controllers/paymentController.js";
 import { corsOptions, securityHeaders } from "./middleware/security.js";
 
@@ -34,6 +35,7 @@ app.use("/api/reviews", reviewsRouter);
 app.use("/api/favorites", favoritesRouter);
 app.use("/api/payments", paymentsRouter);
 app.use("/api/customers", customersRouter);
+app.use("/api/reminders", remindersRouter);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "Barbershop API is running" });

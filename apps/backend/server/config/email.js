@@ -60,3 +60,21 @@ export function buildCancellationEmail({
     `,
   };
 }
+
+export function buildReminderEmail({ recipientName, otherPersonName, serviceName, startTime, role }) {
+  const verb = role === "customer" ? `with ${otherPersonName}` : `for ${otherPersonName}`;
+  return {
+    subject: "Appointment Reminder — SlicedBy_10",
+    html: `<p>Hi ${recipientName},</p><p>This is a reminder for the <strong>${serviceName}</strong> appointment ${verb} on <strong>${new Date(startTime).toLocaleString()}</strong>.</p><p>— SlicedBy_10</p>`,
+  };
+}
+
+export function buildReceiptEmail({ customerName, serviceName, barberName, amount, paymentMethod, paymentNote, cardBrand, cardLast4, paidAt }) {
+  const method = paymentMethod === "CARD"
+    ? `${cardBrand || "Card"}${cardLast4 ? ` ending in ${cardLast4}` : ""}`
+    : paymentMethod === "OTHER" ? paymentNote || "Other" : "Cash";
+  return {
+    subject: "Payment Receipt — SlicedBy_10",
+    html: `<p>Hi ${customerName},</p><h2>Payment receipt</h2><p>Service: <strong>${serviceName}</strong></p><p>Barber: ${barberName}</p><p>Amount: <strong>$${Number(amount).toFixed(2)}</strong></p><p>Payment method: ${method}</p><p>Paid: ${new Date(paidAt).toLocaleString()}</p><p>— SlicedBy_10</p>`,
+  };
+}

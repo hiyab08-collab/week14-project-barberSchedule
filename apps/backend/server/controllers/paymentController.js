@@ -6,6 +6,7 @@ import {
   canManageAppointmentPayment,
 } from "../utils/paymentRules.js";
 import { isFutureAppointmentTime } from "../utils/appointmentRules.js";
+import { buildReceiptEmail, sendAppointmentEmail } from "../config/email.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -33,6 +34,25 @@ const appointmentInclude = {
   service: true,
 };
 
+async function sendReceipt(appointment) {
+  if (!appointment.customer.email || appointment.receiptSentAt) return;
+  await sendAppointmentEmail({
+    to: appointment.customer.email,
+    ...buildReceiptEmail({
+      customerName: appointment.customer.name,
+      serviceName: appointment.service.name,
+      barberName: appointment.barber.name,
+      amount: appointment.service.price,
+      paymentMethod: appointment.paymentMethod,
+      paymentNote: appointment.paymentNote,
+      cardBrand: appointment.cardBrand,
+      cardLast4: appointment.cardLast4,
+      paidAt: appointment.paidAt,
+    }),
+  });
+  await prisma.appointment.update({ where: { id: appointment.id }, data: { receiptSentAt: new Date() } });
+}
+
 async function applyPaidCheckoutSession(session, actor = null) {
   if (session.payment_status !== "paid") {
     const error = new Error("Payment not completed");
@@ -47,6 +67,11 @@ async function applyPaidCheckoutSession(session, actor = null) {
     error.status = 500;
     throw error;
   }
+
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
+    expand: ["payment_method"],
+  });
+  const card = paymentIntent.payment_method?.card || {};
 
   if (session.metadata?.type === "existing_appointment") {
     const appointmentId = Number(session.metadata.appointmentId);
@@ -66,11 +91,13 @@ async function applyPaidCheckoutSession(session, actor = null) {
       throw error;
     }
 
-    return prisma.appointment.update({
+    const updated = await prisma.appointment.update({
       where: { id: appointmentId },
-      data: buildCardPaymentData(appointment, paymentIntentId),
+      data: buildCardPaymentData(appointment, paymentIntentId, new Date(), card),
       include: appointmentInclude,
     });
+    await sendReceipt(updated);
+    return updated;
   }
 
   if (session.metadata?.type !== "new_booking") {
@@ -105,11 +132,13 @@ async function applyPaidCheckoutSession(session, actor = null) {
     });
   }
 
-  return prisma.appointment.update({
+  const updated = await prisma.appointment.update({
     where: { id: appointment.id },
-    data: buildCardPaymentData(appointment, paymentIntentId),
+      data: buildCardPaymentData(appointment, paymentIntentId, new Date(), card),
     include: appointmentInclude,
   });
+  await sendReceipt(updated);
+  return updated;
 }
 
 export async function stripeWebhook(req, res) {

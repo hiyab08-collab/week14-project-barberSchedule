@@ -92,6 +92,7 @@ JWT_SECRET="a-long-random-string"
 FRONTEND_URL="http://localhost:5173"
 STRIPE_SECRET_KEY="sk_test_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
+REMINDER_JOB_SECRET="a-long-random-reminder-secret"
 ALLOWED_ORIGINS="http://localhost:5173"
 RESEND_API_KEY="re_..."
 CLOUDINARY_CLOUD_NAME="your-cloud-name"
@@ -170,6 +171,18 @@ https://your-backend.example.com/api/payments/webhook
 ```
 
 Subscribe it to `checkout.session.completed` and `checkout.session.async_payment_succeeded`, then save its signing secret as `STRIPE_WEBHOOK_SECRET`. The webhook makes payment recording reliable even when the user closes Stripe without returning to the app.
+
+### Appointment reminders
+
+Run a scheduled POST request once per hour to:
+
+```
+https://your-backend.example.com/api/reminders/run
+```
+
+Include the header `x-reminder-secret` with the same value as `REMINDER_JOB_SECRET`. The job emails the customer and barber about appointments approximately 24 hours away and records `reminderSentAt` to prevent duplicates. Customers without an email are skipped.
+
+Payment receipts are emailed after Cash, Other, or Card payment. Card receipts contain only the card brand and last four digits; full card data is never stored.
 
 For Stripe's standard successful test payment, use card number `4242 4242 4242 4242`, any future expiration date, any three-digit CVC, and a valid-looking ZIP code. Never use a real card while the project is in test mode.
 

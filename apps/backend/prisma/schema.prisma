@@ -68,7 +68,11 @@ model Appointment {
   paid                  Boolean           @default(false)
   paymentMethod         String?
   paymentNote           String?
+  cardBrand             String?
+  cardLast4             String?
   paidAt                DateTime?
+  receiptSentAt         DateTime?
+  reminderSentAt        DateTime?
   stripePaymentIntentId String?
   refunded              Boolean           @default(false)
   refundedAt            DateTime?
