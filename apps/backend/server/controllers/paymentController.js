@@ -1,6 +1,10 @@
 import Stripe from "stripe";
 import prisma from "../db/prisma.js";
 import { createAppointmentRecord } from "./appointmentController.js";
+import {
+  buildCardPaymentData,
+  canManageAppointmentPayment,
+} from "../utils/paymentRules.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -20,6 +24,128 @@ function getPaymentIntentId(session) {
   }
 
   return session.payment_intent.id ?? null;
+}
+
+const appointmentInclude = {
+  customer: { select: { id: true, name: true, email: true, phone: true } },
+  barber: { select: { id: true, name: true, email: true } },
+  service: true,
+};
+
+async function applyPaidCheckoutSession(session, actor = null) {
+  if (session.payment_status !== "paid") {
+    const error = new Error("Payment not completed");
+    error.status = 402;
+    throw error;
+  }
+
+  const paymentIntentId = getPaymentIntentId(session);
+
+  if (!paymentIntentId) {
+    const error = new Error("Stripe payment information was not returned");
+    error.status = 500;
+    throw error;
+  }
+
+  if (session.metadata?.type === "existing_appointment") {
+    const appointmentId = Number(session.metadata.appointmentId);
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+    });
+
+    if (!appointment) {
+      const error = new Error("Appointment not found");
+      error.status = 404;
+      throw error;
+    }
+
+    if (actor && !canManageAppointmentPayment(actor, appointment)) {
+      const error = new Error("You are not allowed to verify this payment");
+      error.status = 403;
+      throw error;
+    }
+
+    return prisma.appointment.update({
+      where: { id: appointmentId },
+      data: buildCardPaymentData(appointment, paymentIntentId),
+      include: appointmentInclude,
+    });
+  }
+
+  if (session.metadata?.type !== "new_booking") {
+    const error = new Error("Unknown payment session type");
+    error.status = 400;
+    throw error;
+  }
+
+  const { customerId, barberId, serviceId, startTime } = session.metadata;
+
+  if (actor && actor.role !== "ADMIN" && Number(customerId) !== actor.userId) {
+    const error = new Error("You are not allowed to verify this payment");
+    error.status = 403;
+    throw error;
+  }
+
+  let appointment = await prisma.appointment.findFirst({
+    where: {
+      customerId: Number(customerId),
+      barberId: Number(barberId),
+      serviceId: Number(serviceId),
+      startTime: new Date(startTime),
+    },
+  });
+
+  if (!appointment) {
+    appointment = await createAppointmentRecord({
+      customerId: Number(customerId),
+      barberId: Number(barberId),
+      serviceId: Number(serviceId),
+      startTime,
+    });
+  }
+
+  return prisma.appointment.update({
+    where: { id: appointment.id },
+    data: buildCardPaymentData(appointment, paymentIntentId),
+    include: appointmentInclude,
+  });
+}
+
+export async function stripeWebhook(req, res) {
+  const signature = req.headers["stripe-signature"];
+
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    return res.status(503).json({ error: "Stripe webhook is not configured" });
+  }
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET,
+    );
+  } catch (error) {
+    console.error("Invalid Stripe webhook signature:", error.message);
+    return res.status(400).send("Invalid webhook signature");
+  }
+
+  try {
+    if (
+      event.type === "checkout.session.completed" ||
+      event.type === "checkout.session.async_payment_succeeded"
+    ) {
+      await applyPaidCheckoutSession(event.data.object);
+    }
+
+    return res.json({ received: true });
+  } catch (error) {
+    console.error("Error processing Stripe webhook:", error);
+    return res.status(error.status || 500).json({
+      error: error.message || "Failed to process Stripe webhook",
+    });
+  }
 }
 
 // =========================
@@ -124,11 +250,7 @@ export async function createAppointmentPaymentSession(req, res) {
       });
     }
 
-    const isCustomer = appointment.customerId === userId;
-    const isAssignedBarber =
-      role === "BARBER" && appointment.barberId === userId;
-
-    if (!isCustomer && !isAssignedBarber) {
+    if (!canManageAppointmentPayment({ userId, role }, appointment)) {
       return res.status(403).json({
         error: "You are not allowed to pay for this appointment",
       });
@@ -199,236 +321,16 @@ export async function verifySession(req, res) {
     const { sessionId } = req.query;
 
     if (!sessionId) {
-      return res.status(400).json({
-        error: "sessionId is required",
-      });
+      return res.status(400).json({ error: "sessionId is required" });
     }
 
     const session = await stripe.checkout.sessions.retrieve(sessionId);
-
-    if (session.payment_status !== "paid") {
-      return res.status(402).json({
-        error: "Payment not completed",
-      });
-    }
-
-    const paymentIntentId = getPaymentIntentId(session);
-
-    if (!paymentIntentId) {
-      return res.status(500).json({
-        error: "Stripe payment information was not returned",
-      });
-    }
-
-    // =========================
-    // EXISTING APPOINTMENT
-    // =========================
-
-    if (session.metadata?.type === "existing_appointment") {
-      const appointmentId = Number(session.metadata.appointmentId);
-
-      const appointment = await prisma.appointment.findUnique({
-        where: {
-          id: appointmentId,
-        },
-      });
-
-      if (!appointment) {
-        return res.status(404).json({
-          error: "Appointment not found",
-        });
-      }
-
-      const updated = await prisma.appointment.update({
-        where: {
-          id: appointmentId,
-        },
-
-        data: {
-          paid: true,
-
-          paymentMethod: "CARD",
-          paymentNote: null,
-          paidAt: new Date(),
-
-          stripePaymentIntentId: paymentIntentId,
-
-          refunded: false,
-          refundedAt: null,
-        },
-
-        include: {
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-
-          barber: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-
-          service: true,
-        },
-      });
-
-      return res.json(updated);
-    }
-
-    // =========================
-    // NEW PREPAID BOOKING
-    // =========================
-
-    if (session.metadata?.type !== "new_booking") {
-      return res.status(400).json({
-        error: "Unknown payment session type",
-      });
-    }
-
-    const { customerId, barberId, serviceId, startTime } = session.metadata;
-
-    const existing = await prisma.appointment.findFirst({
-      where: {
-        customerId: Number(customerId),
-
-        barberId: Number(barberId),
-
-        serviceId: Number(serviceId),
-
-        startTime: new Date(startTime),
-      },
-
-      include: {
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-
-        barber: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-
-        service: true,
-      },
-    });
-
-    // If verification is called more
-    // than once, keep it idempotent.
-    if (existing) {
-      const updatedExisting = await prisma.appointment.update({
-        where: {
-          id: existing.id,
-        },
-
-        data: {
-          paid: true,
-
-          stripePaymentIntentId: paymentIntentId,
-
-          refunded: false,
-          refundedAt: null,
-        },
-
-        include: {
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-
-          barber: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-
-          service: true,
-        },
-      });
-
-      return res.json(updatedExisting);
-    }
-
-    const appointment = await createAppointmentRecord({
-      customerId: Number(customerId),
-
-      barberId: Number(barberId),
-
-      serviceId: Number(serviceId),
-
-      startTime,
-    });
-
-    const paidAppointment = await prisma.appointment.update({
-      where: {
-        id: appointment.id,
-      },
-
-      data: {
-        paid: true,
-
-        stripePaymentIntentId: paymentIntentId,
-
-        refunded: false,
-        refundedAt: null,
-      },
-
-      include: {
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-
-        barber: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-
-        service: true,
-      },
-    });
-
-    res.status(201).json(paidAppointment);
+    const appointment = await applyPaidCheckoutSession(session, req.user);
+    return res.json(appointment);
   } catch (error) {
     console.error("Error verifying session:", error);
-
-    if (error.message === "Service not found") {
-      return res.status(404).json({
-        error: error.message,
-      });
-    }
-
-    if (error.message === "This barber is already booked during that time") {
-      return res.status(409).json({
-        error: error.message,
-      });
-    }
-
-    res.status(500).json({
-      error: "Failed to verify payment session",
+    return res.status(error.status || 500).json({
+      error: error.message || "Failed to verify payment session",
     });
   }
 }

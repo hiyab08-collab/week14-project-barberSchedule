@@ -91,6 +91,8 @@ PORT=5000
 JWT_SECRET="a-long-random-string"
 FRONTEND_URL="http://localhost:5173"
 STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+ALLOWED_ORIGINS="http://localhost:5173"
 RESEND_API_KEY="re_..."
 CLOUDINARY_CLOUD_NAME="your-cloud-name"
 CLOUDINARY_API_KEY="your-api-key"
@@ -98,6 +100,8 @@ CLOUDINARY_API_SECRET="your-api-secret"
 ```
 
 Stripe should remain in test mode for project demonstrations. Resend and Cloudinary values are needed only for the email and media-upload features that use those services.
+
+For deployed environments, set `ALLOWED_ORIGINS` to the exact frontend URL. Multiple allowed frontends can be supplied as a comma-separated list.
 
 Start PostgreSQL (via Docker):
 ```
@@ -119,6 +123,13 @@ Start the backend server:
 npm run dev
 ```
 
+Run the automated backend checks:
+
+```
+npm test
+npx prisma validate
+```
+
 ### Frontend setup
 In a separate terminal:
 ```
@@ -133,6 +144,15 @@ For a deployed frontend, also set:
 
 ```
 VITE_API_URL="https://your-backend.example.com/api"
+VITE_SHOP_TIME_ZONE="America/New_York"
+```
+
+`VITE_SHOP_TIME_ZONE` keeps appointment and payment timestamps consistent across devices. Use the IANA time zone for the shop's location.
+
+For deployment, the backend build command should generate Prisma Client and apply committed migrations before starting the server:
+
+```
+npm install && npx prisma generate && npx prisma migrate deploy
 ```
 
 ## Payment Flows
@@ -140,6 +160,16 @@ VITE_API_URL="https://your-backend.example.com/api"
 - **Cash:** the assigned barber records the completed appointment as paid.
 - **Card:** the customer or assigned barber continues to Stripe Checkout. The appointment is marked paid after a successful test payment is verified.
 - **Other:** the barber must identify the payment type, such as Zelle, Venmo, or Cash App. The note is saved with the completed appointment.
+
+### Stripe webhook
+
+Create a Stripe webhook endpoint pointing to:
+
+```
+https://your-backend.example.com/api/payments/webhook
+```
+
+Subscribe it to `checkout.session.completed` and `checkout.session.async_payment_succeeded`, then save its signing secret as `STRIPE_WEBHOOK_SECRET`. The webhook makes payment recording reliable even when the user closes Stripe without returning to the app.
 
 For Stripe's standard successful test payment, use card number `4242 4242 4242 4242`, any future expiration date, any three-digit CVC, and a valid-looking ZIP code. Never use a real card while the project is in test mode.
 
@@ -156,7 +186,7 @@ For Stripe's standard successful test payment, use card number `4242 4242 4242 4
 
 ## Project Status
 
-The application is a completed project MVP intended for demonstration and portfolio use. Before a real commercial launch, future work should include a Stripe webhook, automated tests, stricter CORS configuration, rate limiting, security headers, password recovery, and production monitoring.
+The application is a completed project MVP intended for demonstration and portfolio use. It includes Stripe webhook handling, critical payment/booking rule tests, restricted CORS, authentication rate limiting, and baseline security headers. Before a real commercial launch, future work should include broader integration and browser tests, password recovery, SMS reminders, and production monitoring.
 
 ## AI Usage Reflection
 

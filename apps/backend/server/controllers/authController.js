@@ -17,6 +17,12 @@ export async function signup(req, res) {
       });
     }
 
+    if (password.length < 8) {
+      return res.status(400).json({
+        error: "password must be at least 8 characters",
+      });
+    }
+
     const normalizedEmail = email.trim().toLowerCase();
 
     const existingUser = await prisma.user.findUnique({

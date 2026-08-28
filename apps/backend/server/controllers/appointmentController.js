@@ -6,6 +6,11 @@ import {
   buildBookingConfirmationEmail,
   buildCancellationEmail,
 } from "../config/email.js";
+import {
+  shouldRefundAppointment,
+  validateManualPayment,
+} from "../utils/paymentRules.js";
+import { appointmentsOverlap } from "../utils/appointmentRules.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -193,10 +198,6 @@ export async function createAppointmentRecord({
 
   const requestedStart = new Date(startTime);
 
-  const requestedEnd = new Date(
-    requestedStart.getTime() + service.durationMinutes * 60000,
-  );
-
   const barberAppointments = await prisma.appointment.findMany({
     where: {
       barberId,
@@ -212,11 +213,12 @@ export async function createAppointmentRecord({
   });
 
   const hasConflict = barberAppointments.some((appt) => {
-    const apptEnd = new Date(
-      appt.startTime.getTime() + appt.service.durationMinutes * 60000,
+    return appointmentsOverlap(
+      requestedStart,
+      service.durationMinutes,
+      appt.startTime,
+      appt.service.durationMinutes,
     );
-
-    return appt.startTime < requestedEnd && apptEnd > requestedStart;
   });
 
   if (hasConflict) {
@@ -517,11 +519,7 @@ export async function cancelAppointment(req, res) {
     // REFUND PREPAID PAYMENT
     // =========================
 
-    if (
-      appointment.paid &&
-      appointment.stripePaymentIntentId &&
-      !appointment.refunded
-    ) {
+    if (shouldRefundAppointment(appointment)) {
       await stripe.refunds.create(
         {
           payment_intent: appointment.stripePaymentIntentId,
@@ -772,32 +770,19 @@ export async function recordAppointmentPayment(req, res) {
     const { userId, role } = req.user;
     const { paymentMethod, paymentNote } = req.body;
 
-    const allowedMethods = ["CASH", "CARD", "OTHER"];
-
     if (role !== "BARBER") {
       return res.status(403).json({
         error: "Only a barber can record an in-person payment",
       });
     }
 
-    if (!allowedMethods.includes(paymentMethod)) {
-      return res.status(400).json({
-        error: "Payment method must be CASH, CARD, or OTHER",
-      });
-    }
+    const paymentValidation = validateManualPayment(
+      paymentMethod,
+      paymentNote,
+    );
 
-    if (paymentMethod === "CARD") {
-      return res.status(400).json({
-        error: "Card payments must be completed through Stripe Checkout",
-      });
-    }
-
-    const normalizedPaymentNote = paymentNote?.trim() || null;
-
-    if (paymentMethod === "OTHER" && !normalizedPaymentNote) {
-      return res.status(400).json({
-        error: "A payment note is required for OTHER payments",
-      });
+    if (paymentValidation.error) {
+      return res.status(400).json({ error: paymentValidation.error });
     }
 
     const appointment = await prisma.appointment.findUnique({
@@ -865,8 +850,7 @@ export async function recordAppointmentPayment(req, res) {
       data: {
         paid: true,
         paymentMethod,
-        paymentNote:
-          paymentMethod === "OTHER" ? normalizedPaymentNote : null,
+        paymentNote: paymentValidation.note,
         paidAt: new Date(),
       },
 

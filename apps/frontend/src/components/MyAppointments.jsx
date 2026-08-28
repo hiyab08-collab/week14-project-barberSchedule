@@ -3,6 +3,7 @@
 import { cancelAppointment } from "../api/appointments.js";
 import { createAppointmentPaymentSession } from "../api/payments.js";
 import { buildGoogleCalendarUrl, downloadIcsFile } from "../utils/calendar.js";
+import { formatDateTime } from "../utils/dateTime.js";
 
 export default function MyAppointments({
   appointments,
@@ -111,7 +112,7 @@ export default function MyAppointments({
               <strong>{appt.service.name}</strong> {roleLabel}{" "}
               {otherPerson.name}
               <p>
-                {new Date(appt.startTime).toLocaleString()}
+                {formatDateTime(appt.startTime)}
                 {" — "}
                 <em>{appt.status}</em>
                 {" — "}

@@ -9,11 +9,19 @@ import reviewsRouter from "./routes/reviews.js";
 import favoritesRouter from "./routes/favorites.js";
 import paymentsRouter from "./routes/payments.js";
 import customersRouter from "./routes/customers.js";
+import { stripeWebhook } from "./controllers/paymentController.js";
+import { corsOptions, securityHeaders } from "./middleware/security.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors(corsOptions()));
+app.use(securityHeaders);
+app.post(
+  "/api/payments/webhook",
+  express.raw({ type: "application/json" }),
+  stripeWebhook,
+);
 app.use(express.json());
 
 app.use("/uploads", express.static("uploads"));

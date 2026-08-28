@@ -8,6 +8,7 @@ import {
 
 import { fetchCustomers, createCustomer } from "../api/customers.js";
 import { createAppointmentPaymentSession } from "../api/payments.js";
+import { formatDateTime } from "../utils/dateTime.js";
 
 const emptyBookingForm = {
   customerId: "",
@@ -309,7 +310,7 @@ export default function BarberPanel({
 
         {appt.customer.phone ? <p>Phone: {appt.customer.phone}</p> : null}
 
-        <p>{new Date(appt.startTime).toLocaleString()}</p>
+        <p>{formatDateTime(appt.startTime)}</p>
 
         <p>Service price: ${appt.service.price}</p>
 
@@ -332,7 +333,7 @@ export default function BarberPanel({
         ) : null}
 
         {appt.paid && appt.paidAt ? (
-          <p>Paid: {new Date(appt.paidAt).toLocaleString()}</p>
+          <p>Paid: {formatDateTime(appt.paidAt)}</p>
         ) : null}
 
         {canComplete ? (

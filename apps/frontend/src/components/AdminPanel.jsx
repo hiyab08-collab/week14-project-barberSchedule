@@ -10,6 +10,7 @@ import {
   updateAppointmentAdmin,
   deleteAppointmentAdmin,
 } from "../api/appointments.js";
+import { formatDateTime } from "../utils/dateTime.js";
 
 const emptyService = {
   name: "",
@@ -90,7 +91,7 @@ export default function AdminPanel({
   async function handleDeleteService(id) {
     if (
       !window.confirm(
-        "Permanently delete this appointment? This cannot be undone.",
+        "Permanently delete this service? This cannot be undone.",
       )
     )
       return;
@@ -162,6 +163,8 @@ export default function AdminPanel({
   }
 
   async function handleDeleteAppointment(id) {
+    if (!window.confirm("Permanently delete this appointment?")) return;
+
     try {
       await deleteAppointmentAdmin(id, token);
       loadAppointments();
@@ -170,9 +173,48 @@ export default function AdminPanel({
     }
   }
 
+  const paidAppointments = appointments.filter(
+    (appointment) => appointment.paid && !appointment.refunded,
+  );
+  const collectedRevenue = paidAppointments.reduce(
+    (total, appointment) => total + Number(appointment.service.price),
+    0,
+  );
+  const paymentCounts = paidAppointments.reduce((counts, appointment) => {
+    const method = appointment.paymentMethod || "UNSPECIFIED";
+    counts[method] = (counts[method] || 0) + 1;
+    return counts;
+  }, {});
+
   return (
     <>
       {status ? <p className="status">{status}</p> : null}
+
+      <section className="panel" aria-labelledby="payment-summary-heading">
+        <h2 id="payment-summary-heading">Payment Summary</h2>
+        <div className="summary-grid">
+          <p>
+            <strong>${collectedRevenue.toFixed(2)}</strong>
+            <span>Collected revenue</span>
+          </p>
+          <p>
+            <strong>{paidAppointments.length}</strong>
+            <span>Paid appointments</span>
+          </p>
+          <p>
+            <strong>{paymentCounts.CARD || 0}</strong>
+            <span>Card</span>
+          </p>
+          <p>
+            <strong>{paymentCounts.CASH || 0}</strong>
+            <span>Cash</span>
+          </p>
+          <p>
+            <strong>{paymentCounts.OTHER || 0}</strong>
+            <span>Other</span>
+          </p>
+        </div>
+      </section>
 
       <section className="grid">
         <article className="panel">
@@ -380,7 +422,7 @@ export default function AdminPanel({
                 <strong>{appt.service.name}</strong> — {appt.customer.name} with{" "}
                 {appt.barber.name}
                 <p>
-                  {new Date(appt.startTime).toLocaleString()} —{" "}
+                  {formatDateTime(appt.startTime)} —{" "}
                   <em>{appt.status}</em>
                   {appt.status === "COMPLETED" ? (
                     <>

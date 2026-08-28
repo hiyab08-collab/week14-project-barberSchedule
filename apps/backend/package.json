@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node --watch server/server.js",
     "start": "node server/server.js",
+    "test": "node --test --test-isolation=none",
     "db:up": "docker compose -f ../../docker-compose.yml up -d postgres",
     "db:down": "docker compose -f ../../docker-compose.yml down",
     "db:logs": "docker compose -f ../../docker-compose.yml logs -f postgres",
