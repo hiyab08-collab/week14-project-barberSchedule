@@ -184,6 +184,8 @@ Add an encrypted GitHub Actions repository secret named `REMINDER_JOB_SECRET` wi
 
 Payment receipts are emailed after Cash, Other, or Card payment. Card receipts contain only the card brand and last four digits; full card data is never stored.
 
+The barber dashboard separates completed appointments into **Payment Due**, **Recently Paid** (last 30 days), and searchable **Appointment History**. This keeps unpaid work visible without mixing it with older payment records.
+
 For Stripe's standard successful test payment, use card number `4242 4242 4242 4242`, any future expiration date, any three-digit CVC, and a valid-looking ZIP code. Never use a real card while the project is in test mode.
 
 ## Final Demonstration Checklist

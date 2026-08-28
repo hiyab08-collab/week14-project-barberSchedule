@@ -49,6 +49,7 @@ export default function BarberPanel({
   const [paymentNotes, setPaymentNotes] = useState({});
 
   const [recordingPaymentId, setRecordingPaymentId] = useState(null);
+  const [historySearch, setHistorySearch] = useState("");
 
   // =========================
   // BARBER'S APPOINTMENTS
@@ -62,9 +63,25 @@ export default function BarberPanel({
     (appt) => appt.status !== "COMPLETED" && appt.status !== "CANCELLED",
   );
 
-  const completedAppointments = myAppointments.filter(
-    (appt) => appt.status === "COMPLETED",
+  const paymentDueAppointments = myAppointments.filter(
+    (appt) => appt.status === "COMPLETED" && !appt.paid && !appt.refunded,
   );
+
+  const recentCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const paidAppointments = myAppointments
+    .filter((appt) => appt.status === "COMPLETED" && (appt.paid || appt.refunded))
+    .sort((a, b) => new Date(b.paidAt || b.refundedAt) - new Date(a.paidAt || a.refundedAt));
+  const recentlyPaidAppointments = paidAppointments.filter(
+    (appt) => new Date(appt.paidAt || appt.refundedAt).getTime() >= recentCutoff,
+  );
+  const normalizedHistorySearch = historySearch.trim().toLowerCase();
+  const historyAppointments = paidAppointments.filter((appt) => {
+    if (new Date(appt.paidAt || appt.refundedAt).getTime() >= recentCutoff) return false;
+    if (!normalizedHistorySearch) return true;
+    return [appt.customer.name, appt.customer.email, appt.customer.phone, appt.service.name, appt.paymentMethod, appt.paymentNote]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(normalizedHistorySearch));
+  });
 
   // =========================
   // LOAD CUSTOMERS
@@ -550,15 +567,54 @@ export default function BarberPanel({
 
       <section className="grid">
         <article className="panel">
-          <h2>Completed Appointments</h2>
+          <h2>Payment Due</h2>
 
-          {completedAppointments.length === 0 ? (
-            <p>You do not have any completed appointments yet.</p>
+          {paymentDueAppointments.length === 0 ? (
+            <p>No completed appointments are awaiting payment.</p>
           ) : (
             <ul className="item-list">
-              {completedAppointments.map(renderAppointment)}
+              {paymentDueAppointments.map(renderAppointment)}
             </ul>
           )}
+        </article>
+      </section>
+
+      <section className="grid">
+        <article className="panel">
+          <h2>Recently Paid</h2>
+          <p>Payments and refunds from the last 30 days.</p>
+          {recentlyPaidAppointments.length === 0 ? (
+            <p>No recent payments.</p>
+          ) : (
+            <ul className="item-list">
+              {recentlyPaidAppointments.map(renderAppointment)}
+            </ul>
+          )}
+        </article>
+      </section>
+
+      <section className="grid">
+        <article className="panel">
+          <details>
+            <summary><strong>Appointment History</strong></summary>
+            <p>Paid and refunded appointments older than 30 days.</p>
+            <label className="form">
+              Search history
+              <input
+                type="search"
+                value={historySearch}
+                onChange={(event) => setHistorySearch(event.target.value)}
+                placeholder="Customer, service, or payment method"
+              />
+            </label>
+            {historyAppointments.length === 0 ? (
+              <p>No matching appointment history.</p>
+            ) : (
+              <ul className="item-list">
+                {historyAppointments.map(renderAppointment)}
+              </ul>
+            )}
+          </details>
         </article>
       </section>
     </>
