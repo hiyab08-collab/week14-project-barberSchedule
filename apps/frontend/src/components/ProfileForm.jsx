@@ -8,6 +8,8 @@ export default function ProfileForm({ user, token, onUpdated }) {
     currentPassword: "", newPassword: "",
   });
   const [status, setStatus] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   async function submit(event) {
     event.preventDefault();
@@ -33,8 +35,48 @@ export default function ProfileForm({ user, token, onUpdated }) {
           <label>Bio<textarea name="bio" value={form.bio} onChange={change} /></label>
           <label>Specialties<input name="specialties" value={form.specialties} onChange={change} /></label>
         </> : null}
-        <label>Current password<input type="password" name="currentPassword" value={form.currentPassword} onChange={change} placeholder="Required to change email or password" /></label>
-        <label>New password<input type="password" name="newPassword" value={form.newPassword} onChange={change} minLength={8} /></label>
+        <label>
+          Current password
+          <div className="password-field">
+            <input
+              type={showCurrentPassword ? "text" : "password"}
+              name="currentPassword"
+              value={form.currentPassword}
+              onChange={change}
+              placeholder="Required to change email or password"
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              onClick={() => setShowCurrentPassword((current) => !current)}
+              aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
+              aria-pressed={showCurrentPassword}
+            >
+              {showCurrentPassword ? "Hide" : "Show"}
+            </button>
+          </div>
+        </label>
+        <label>
+          New password
+          <div className="password-field">
+            <input
+              type={showNewPassword ? "text" : "password"}
+              name="newPassword"
+              value={form.newPassword}
+              onChange={change}
+              minLength={8}
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              onClick={() => setShowNewPassword((current) => !current)}
+              aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+              aria-pressed={showNewPassword}
+            >
+              {showNewPassword ? "Hide" : "Show"}
+            </button>
+          </div>
+        </label>
         {status ? <p className="status">{status}</p> : null}
         <button type="submit">Save Profile</button>
       </form>
