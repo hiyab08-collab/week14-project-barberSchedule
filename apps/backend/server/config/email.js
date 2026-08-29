@@ -1,7 +1,25 @@
 import { Resend } from "resend";
 
 const FROM_ADDRESS = "SlicedBy_10 <onboarding@resend.dev>";
-const SHOP_TIME_ZONE = process.env.SHOP_TIME_ZONE || "America/New_York";
+function validTimeZone(value) {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const configuredTimeZone = process.env.SHOP_TIME_ZONE;
+const SHOP_TIME_ZONE = validTimeZone(configuredTimeZone)
+  ? configuredTimeZone
+  : "America/New_York";
+
+if (configuredTimeZone && !validTimeZone(configuredTimeZone)) {
+  console.warn(
+    `Invalid SHOP_TIME_ZONE "${configuredTimeZone}"; using America/New_York.`,
+  );
+}
 
 export function formatShopDateTime(value) {
   return new Intl.DateTimeFormat("en-US", {
