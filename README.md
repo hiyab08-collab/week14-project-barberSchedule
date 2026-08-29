@@ -1,18 +1,21 @@
-# NTen Cuts — Barbershop Booking Platform
+# SlicedBy_10 — Barbershop Booking and Payment Platform
 
 ## Problem Statement
-Small barbershops often rely on phone calls or walk-ins to manage appointments, which leads to double-bookings, missed calls, and no easy way for customers to see what services are offered or leave feedback. NTen Cuts solves this by giving a barbershop a real online booking system: customers can browse services, pick a barber, book a time slot, and the system automatically prevents double-booking. Shop owners get a full admin dashboard to manage services, staff, and appointments without touching the database directly.
+Small barbershops often rely on phone calls or walk-ins to manage appointments, which leads to double-bookings, missed calls, and no easy way for customers to see what services are offered or leave feedback. SlicedBy_10 solves this by giving a barbershop an online booking, payment, reminder, and receipt system. Customers can browse services, pick a barber, book a valid future time, and manage their appointments. Barbers can handle phone bookings and completed services, while shop owners get an admin dashboard without needing direct database access.
 
 ## Target User
 - **Customers** who want to browse services, book an appointment with a specific barber, view their upcoming appointments, and leave reviews/likes.
-- **Shop admins/owners** who need to manage the list of services offered, add or remove barbers, and oversee every appointment in the shop (confirm, cancel, or delete).
+- **Barbers** who need to create phone customers, schedule appointments, complete services, record payments, and issue receipts.
+- **Shop admins/owners** who need to manage services and barbers, oversee appointments, and view payment totals.
 
 ## Features
 - Customer signup/login with secure password hashing (bcrypt) and JWT-based sessions
 - Role-based access: `CUSTOMER`, `BARBER`, `ADMIN`
+- Editable profiles for every role, including secure email and password changes with Show/Hide password controls
 - Browse services (name, price, duration, description)
 - Browse barbers, view bios/specialties, like a barber, and read/leave reviews
 - Book an appointment with a chosen barber, service, and date/time
+- Block past appointment times and provide a clear validation message
 - Automatic double-booking prevention (checks for real time-range overlaps against a barber's existing appointments)
 - View and cancel your own appointments
 - Admin panel: full create/edit/delete for services and barbers, and confirm/cancel/delete for any appointment
@@ -21,6 +24,12 @@ Small barbershops often rely on phone calls or walk-ins to manage appointments, 
 - Record in-person cash payments or alternative payments such as Zelle, Venmo, or Cash App
 - Require and display a note identifying alternative payment types
 - Record payment timestamps and support eligible Stripe refunds
+- Reliable Stripe payment updates through a signed webhook
+- Email appointment confirmations and 24-hour appointment reminders for customers and barbers
+- Downloadable receipts plus prefilled email and phone-message receipt options
+- Display only safe card details (brand and last four digits) on receipts
+- Barber payment views for Payment Due, Recently Paid, and searchable Appointment History
+- Admin payment summary with collected revenue and Card, Cash, and Other totals
 - Add appointments to Google Calendar or download an `.ics` calendar event
 - Progressive Web App (PWA) support
 - Dark/light mode toggle with a persistent theme preference
@@ -44,6 +53,7 @@ The database has 7 related tables:
 - **Appointment** — the core booking record. Has three foreign keys: `customerId` and `barberId` (both pointing back to `User`, distinguished with named relations since one table links to another twice), and `serviceId`. Also stores `startTime` and a `status` enum (`PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED`).
 - **Review** — a review a customer leaves on either a barber or a service (the two foreign keys, `barberId` and `serviceId`, are both optional; exactly one is set per row).
 - **BarberLike** — a customer "liking" a barber overall, with a composite unique constraint on `(userId, barberId)` so a user can only like a given barber once.
+- **Favorite** — a saved barber or service for a customer, constrained so the same item cannot be favorited twice.
 
 Primary keys are auto-incrementing integers on every table. Foreign keys enforce that an appointment can't reference a nonexistent customer, barber, or service.
 
@@ -53,6 +63,7 @@ Primary keys are auto-incrementing integers on every table. Foreign keys enforce
 |---|---|---|
 | POST | `/api/auth/signup` | Create a new account |
 | POST | `/api/auth/login` | Log in, receive a JWT |
+| PATCH | `/api/auth/profile` | Update the logged-in user's profile or password |
 | GET | `/api/services` | List all services |
 | POST | `/api/services` | Create a service (admin only) |
 | PUT | `/api/services/:id` | Update a service (admin only) |
@@ -66,10 +77,16 @@ Primary keys are auto-incrementing integers on every table. Foreign keys enforce
 | GET | `/api/appointments/mine` | List the logged-in user's own appointments |
 | POST | `/api/appointments` | Book a new appointment (logged in) |
 | PATCH | `/api/appointments/:id/cancel` | Cancel an appointment (owner or admin) |
+| PATCH | `/api/appointments/:id/complete` | Mark an assigned appointment completed |
+| PATCH | `/api/appointments/:id/record-payment` | Record an authorized Cash or Other payment |
 | PATCH | `/api/appointments/:id` | Update any field on an appointment (admin only) |
 | DELETE | `/api/appointments/:id` | Permanently delete an appointment (admin only) |
 | GET | `/api/reviews?barberId=` or `?serviceId=` | Get reviews for a barber or service |
 | POST | `/api/reviews` | Submit a review (logged in) |
+| POST | `/api/payments/create-checkout-session` | Start an authorized Stripe Checkout session |
+| POST | `/api/payments/webhook` | Receive signed Stripe payment events |
+| GET | `/api/payments/verify-session` | Verify an authorized Stripe Checkout return |
+| POST | `/api/reminders/run` | Run the protected appointment reminder job |
 
 ## Installation Instructions
 
@@ -202,7 +219,10 @@ For Stripe's standard successful test payment, use card number `4242 4242 4242 4
 5. Record an Other payment and verify its required note is displayed.
 6. Complete a Card payment through Stripe Checkout and verify `CARD` and the paid timestamp appear after returning to the app.
 7. Confirm the admin can manage services, barbers, and appointments.
-8. Confirm reviews, favorites, calendar links, theme selection, and the PWA still behave as expected.
+8. Confirm the customer, barber, and admin can edit their profiles and change passwords.
+9. Confirm reminders, confirmation emails, downloadable receipts, and email/text receipt actions.
+10. Confirm the admin payment summary and barber payment-history sections display correctly.
+11. Confirm reviews, favorites, calendar links, theme selection, and the PWA still behave as expected.
 
 ## Project Status
 
