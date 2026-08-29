@@ -304,7 +304,7 @@ export default function BarberPanel({
     return "Not paid";
   }
 
-  function receiptMessage(appt) {
+  function receiptMessage(appt, separator = "\n") {
     const method = appt.paymentMethod === "CARD" && appt.cardLast4
       ? `${appt.cardBrand || "Card"} ending in ${appt.cardLast4}`
       : appt.paymentMethod === "OTHER"
@@ -320,7 +320,7 @@ export default function BarberPanel({
       `Payment method: ${method}`,
       `Paid: ${formatDateTime(appt.paidAt)}`,
       "Thank you!",
-    ].join("\n");
+    ].join(separator);
   }
 
   // =========================
@@ -380,7 +380,7 @@ export default function BarberPanel({
           <div className="receipt-actions" aria-label="Receipt delivery options">
             {appt.customer.email ? (
               <a
-                href={`mailto:${appt.customer.email}?subject=${encodeURIComponent("Payment Receipt — SlicedBy_10")}&body=${encodeURIComponent(receiptMessage(appt))}`}
+                href={`mailto:${appt.customer.email}?subject=${encodeURIComponent("Payment Receipt - SlicedBy_10")}&body=${encodeURIComponent(receiptMessage(appt, "\r\n\r\n"))}`}
               >
                 <button type="button">Open Email Receipt</button>
               </a>
