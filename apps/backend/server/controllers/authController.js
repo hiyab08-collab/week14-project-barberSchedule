@@ -147,3 +147,55 @@ export async function login(req, res) {
     });
   }
 }
+
+export async function updateProfile(req, res) {
+  try {
+    const { name, email, phone, currentPassword, newPassword } = req.body;
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      include: { barberProfile: true },
+    });
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+    const normalizedEmail = email?.trim().toLowerCase();
+    const changingEmail = normalizedEmail && normalizedEmail !== user.email;
+    const changingPassword = Boolean(newPassword);
+
+    if (changingEmail || changingPassword) {
+      if (!user.password || !currentPassword || !(await bcrypt.compare(currentPassword, user.password))) {
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
+    }
+
+    if (changingEmail) {
+      const duplicate = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+      if (duplicate) return res.status(409).json({ error: "An account with this email already exists" });
+    }
+
+    if (newPassword && newPassword.length < 8) {
+      return res.status(400).json({ error: "New password must be at least 8 characters" });
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        name: name?.trim() || user.name,
+        email: normalizedEmail || user.email,
+        phone: phone?.trim() || null,
+        ...(newPassword ? { password: await bcrypt.hash(newPassword, 10) } : {}),
+        ...(user.role === "BARBER" && (req.body.bio !== undefined || req.body.specialties !== undefined)
+          ? { barberProfile: { update: { bio: req.body.bio?.trim() || null, specialties: req.body.specialties?.trim() || null } } }
+          : {}),
+      },
+      include: { barberProfile: true },
+    });
+    const { password: _, ...safeUser } = updated;
+    return res.json(safeUser);
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    if (error.code === "P2002") {
+      return res.status(409).json({ error: "An account with this email already exists" });
+    }
+    return res.status(500).json({ error: "Failed to update profile" });
+  }
+}

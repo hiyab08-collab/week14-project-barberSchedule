@@ -10,6 +10,7 @@ export async function getAllBarbers(req, res) {
         id: true,
         name: true,
         email: true,
+        phone: true,
         barberProfile: true,
         _count: { select: { likesReceived: true } },
       },
@@ -55,6 +56,7 @@ export async function getBarberById(req, res) {
         id: true,
         name: true,
         email: true,
+        phone: true,
         role: true,
         barberProfile: true,
         _count: { select: { likesReceived: true } },
@@ -74,7 +76,7 @@ export async function getBarberById(req, res) {
 
 export async function createBarber(req, res) {
   try {
-    const { name, email, password, bio, specialties } = req.body;
+    const { name, email, phone, password, bio, specialties } = req.body;
 
     if (!name || !email || !password) {
       return res
@@ -95,6 +97,7 @@ export async function createBarber(req, res) {
       data: {
         name,
         email,
+        phone: phone?.trim() || null,
         password: hashedPassword,
         role: "BARBER",
         barberProfile: {
@@ -105,6 +108,7 @@ export async function createBarber(req, res) {
         id: true,
         name: true,
         email: true,
+        phone: true,
         role: true,
         barberProfile: true,
       },
@@ -120,7 +124,7 @@ export async function createBarber(req, res) {
 export async function updateBarber(req, res) {
   try {
     const barberId = Number(req.params.id);
-    const { name, bio, specialties } = req.body;
+    const { name, email, phone, bio, specialties } = req.body;
 
     const existing = await prisma.user.findUnique({ where: { id: barberId } });
     if (!existing || existing.role !== "BARBER") {
@@ -131,6 +135,8 @@ export async function updateBarber(req, res) {
       where: { id: barberId },
       data: {
         name,
+        ...(email ? { email: email.trim().toLowerCase() } : {}),
+        phone: phone?.trim() || null,
         barberProfile: {
           update: { bio, specialties },
         },
@@ -139,6 +145,7 @@ export async function updateBarber(req, res) {
         id: true,
         name: true,
         email: true,
+        phone: true,
         role: true,
         barberProfile: true,
       },
@@ -147,6 +154,9 @@ export async function updateBarber(req, res) {
     res.json(updated);
   } catch (error) {
     console.error("Error updating barber:", error);
+    if (error.code === "P2002") {
+      return res.status(409).json({ error: "An account with this email already exists" });
+    }
     res.status(500).json({ error: "Failed to update barber" });
   }
 }

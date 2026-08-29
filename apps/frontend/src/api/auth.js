@@ -32,3 +32,14 @@ export async function login({ email, password }) {
 
   return data;
 }
+
+export async function updateProfile(profile, token) {
+  const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(profile),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to update profile");
+  return data;
+}

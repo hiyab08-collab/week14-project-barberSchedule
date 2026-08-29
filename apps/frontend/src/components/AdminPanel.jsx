@@ -21,6 +21,7 @@ const emptyService = {
 const emptyBarber = {
   name: "",
   email: "",
+  phone: "",
   password: "",
   bio: "",
   specialties: "",
@@ -109,6 +110,7 @@ export default function AdminPanel({
     setBarberForm({
       name: barber.name,
       email: barber.email,
+      phone: barber.phone || "",
       password: "",
       bio: barber.barberProfile?.bio || "",
       specialties: barber.barberProfile?.specialties || "",
@@ -124,6 +126,8 @@ export default function AdminPanel({
           editingBarberId,
           {
             name: barberForm.name,
+            email: barberForm.email,
+            phone: barberForm.phone,
             bio: barberForm.bio,
             specialties: barberForm.specialties,
           },
@@ -310,6 +314,14 @@ export default function AdminPanel({
                       setBarberForm({ ...barberForm, email: e.target.value })
                     }
                     required
+                  />
+                </label>
+                <label>
+                  Phone
+                  <input
+                    type="tel"
+                    value={barberForm.phone}
+                    onChange={(e) => setBarberForm({ ...barberForm, phone: e.target.value })}
                   />
                 </label>
                 <label>

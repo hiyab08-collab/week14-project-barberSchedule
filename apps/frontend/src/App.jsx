@@ -13,6 +13,7 @@ import Cover from "./components/Cover.jsx";
 import AdminPanel from "./components/AdminPanel.jsx";
 import BarbersSection from "./components/BarbersSection.jsx";
 import BarberPanel from "./components/BarberPanel.jsx";
+import ProfileForm from "./components/ProfileForm.jsx";
 
 export default function App() {
   const [services, setServices] = useState([]);
@@ -274,6 +275,15 @@ export default function App() {
               <p className="status">{paymentStatus}</p>
             </section>
           ) : null}
+
+          <ProfileForm
+            user={user}
+            token={token}
+            onUpdated={(updated) => {
+              setUser(updated);
+              localStorage.setItem("user", JSON.stringify(updated));
+            }}
+          />
 
           {/* ========================= */}
           {/* ADMIN VIEW */}
