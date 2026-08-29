@@ -575,7 +575,13 @@ export default function BarberPanel({
                 min={minimumBookingDateTime()}
                 name="startTime"
                 value={bookingForm.startTime}
-                onChange={handleBookingChange}
+                onChange={(event) => {
+                  event.target.setCustomValidity("");
+                  handleBookingChange(event);
+                }}
+                onInvalid={(event) =>
+                  event.target.setCustomValidity("Choose a future date and time.")
+                }
                 required
               />
             </label>

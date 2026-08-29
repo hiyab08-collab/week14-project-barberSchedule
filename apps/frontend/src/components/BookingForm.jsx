@@ -106,7 +106,13 @@ export default function BookingForm({
             min={minimumBookingDateTime()}
             name="startTime"
             value={form.startTime}
-            onChange={handleChange}
+            onChange={(event) => {
+              event.target.setCustomValidity("");
+              handleChange(event);
+            }}
+            onInvalid={(event) =>
+              event.target.setCustomValidity("Choose a future date and time.")
+            }
             required
           />
         </label>
