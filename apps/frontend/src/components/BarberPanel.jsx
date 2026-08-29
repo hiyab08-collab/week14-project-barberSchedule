@@ -304,6 +304,25 @@ export default function BarberPanel({
     return "Not paid";
   }
 
+  function receiptMessage(appt) {
+    const method = appt.paymentMethod === "CARD" && appt.cardLast4
+      ? `${appt.cardBrand || "Card"} ending in ${appt.cardLast4}`
+      : appt.paymentMethod === "OTHER"
+        ? appt.paymentNote || "Other"
+        : appt.paymentMethod || "Payment recorded";
+
+    return [
+      "SlicedBy_10 Payment Receipt",
+      `Receipt #${appt.id}`,
+      `Customer: ${appt.customer.name}`,
+      `Service: ${appt.service.name}`,
+      `Amount: $${Number(appt.service.price).toFixed(2)}`,
+      `Payment method: ${method}`,
+      `Paid: ${formatDateTime(appt.paidAt)}`,
+      "Thank you!",
+    ].join("\n");
+  }
+
   // =========================
   // APPOINTMENT DISPLAY
   // =========================
@@ -355,6 +374,25 @@ export default function BarberPanel({
 
         {appt.paid && appt.paidAt ? (
           <p>Paid: {formatDateTime(appt.paidAt)}</p>
+        ) : null}
+
+        {appt.paid ? (
+          <div className="receipt-actions" aria-label="Receipt delivery options">
+            {appt.customer.email ? (
+              <a
+                href={`mailto:${appt.customer.email}?subject=${encodeURIComponent("Payment Receipt — SlicedBy_10")}&body=${encodeURIComponent(receiptMessage(appt))}`}
+              >
+                <button type="button">Open Email Receipt</button>
+              </a>
+            ) : null}{" "}
+            {appt.customer.phone ? (
+              <a
+                href={`sms:${appt.customer.phone}?body=${encodeURIComponent(receiptMessage(appt))}`}
+              >
+                <button type="button">Open Text Receipt</button>
+              </a>
+            ) : null}
+          </div>
         ) : null}
 
         {canComplete ? (

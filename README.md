@@ -186,6 +186,8 @@ Payment receipts are emailed after Cash, Other, or Card payment. Card receipts c
 
 Customers can also download a text receipt from their appointment list. It includes the service, barber, amount, payment date, and safe payment description.
 
+From a paid appointment, the barber can choose **Open Email Receipt** or **Open Text Receipt**. These actions open the barber's own email or phone messaging app with a prefilled receipt so the barber can review it before pressing Send. No paid SMS provider is required.
+
 The barber dashboard separates completed appointments into **Payment Due**, **Recently Paid** (last 30 days), and searchable **Appointment History**. This keeps unpaid work visible without mixing it with older payment records.
 
 For Stripe's standard successful test payment, use card number `4242 4242 4242 4242`, any future expiration date, any three-digit CVC, and a valid-looking ZIP code. Never use a real card while the project is in test mode.
