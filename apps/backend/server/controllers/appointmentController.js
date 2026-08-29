@@ -437,6 +437,10 @@ export async function createAppointment(req, res) {
       });
     }
 
+    if (error.message === "Appointment time must be in the future") {
+      return res.status(400).json({ error: error.message });
+    }
+
     if (error.message === "This barber is already booked during that time") {
       return res.status(409).json({
         error: error.message,
@@ -789,12 +793,6 @@ export async function recordAppointmentPayment(req, res) {
     if (paymentValidation.error) {
       return res.status(400).json({ error: paymentValidation.error });
     }
-
-
-    if (error.message === "Appointment time must be in the future") {
-      return res.status(400).json({ error: error.message });
-    }
-
     const appointment = await prisma.appointment.findUnique({
       where: {
         id: appointmentId,

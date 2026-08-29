@@ -195,6 +195,12 @@ export async function createCheckoutSession(req, res) {
       });
     }
 
+    if (!isFutureAppointmentTime(startTime)) {
+      return res.status(400).json({
+        error: "Appointment time must be in the future",
+      });
+    }
+
     const service = await prisma.service.findUnique({
       where: {
         id: Number(serviceId),
@@ -352,10 +358,6 @@ export async function verifySession(req, res) {
 
     if (!sessionId) {
       return res.status(400).json({ error: "sessionId is required" });
-    }
-
-    if (!isFutureAppointmentTime(startTime)) {
-      return res.status(400).json({ error: "Appointment time must be in the future" });
     }
 
     const session = await stripe.checkout.sessions.retrieve(sessionId);
