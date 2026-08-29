@@ -380,7 +380,7 @@ export default function BarberPanel({
           <div className="receipt-actions" aria-label="Receipt delivery options">
             {appt.customer.email ? (
               <a
-                href={`mailto:${appt.customer.email}?subject=${encodeURIComponent("Payment Receipt - SlicedBy_10")}&body=${encodeURIComponent(receiptMessage(appt, "\r\n\r\n"))}`}
+                href={`mailto:${appt.customer.email}?subject=${encodeURIComponent(`SlicedBy_10 Receipt #${appt.id}`)}&body=${encodeURIComponent(receiptMessage(appt, " | "))}`}
               >
                 <button type="button">Open Email Receipt</button>
               </a>
