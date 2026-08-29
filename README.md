@@ -181,7 +181,7 @@ The repository includes `.github/workflows/appointment-reminders.yml`, which sen
 https://your-backend.example.com/api/reminders/run
 ```
 
-Add an encrypted GitHub Actions repository secret named `REMINDER_JOB_SECRET` with the same value used by the backend. The workflow includes it in the `x-reminder-secret` header. The job emails the customer and barber about appointments approximately 24 hours away and records `reminderSentAt` to prevent duplicates. Customers without an email are skipped. It can also be tested manually from the repository's Actions tab with **Run workflow**.
+Add an encrypted GitHub Actions repository secret named `REMINDER_JOB_SECRET` with the same value used by the backend. The workflow includes it in the `x-reminder-secret` header. The job emails the customer and barber once when an unsent appointment is within the next 24 hours and records `reminderSentAt` to prevent duplicates. This also covers appointments booked less than a day in advance. Customers without an email are skipped. It can be tested manually from the repository's Actions tab with **Run workflow**.
 
 Payment receipts are emailed after Cash, Other, or Card payment. Card receipts contain only the card brand and last four digits; full card data is never stored.
 

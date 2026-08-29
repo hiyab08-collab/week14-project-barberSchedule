@@ -7,8 +7,8 @@ export async function runAppointmentReminders(req, res) {
   }
 
   const now = new Date();
-  const from = new Date(now.getTime() + 23 * 60 * 60 * 1000);
-  const to = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+  const from = now;
+  const to = new Date(now.getTime() + 24 * 60 * 60 * 1000);
   const appointments = await prisma.appointment.findMany({
     where: { startTime: { gte: from, lte: to }, reminderSentAt: null, status: { in: ["PENDING", "CONFIRMED"] } },
     include: { customer: true, barber: true, service: true },
